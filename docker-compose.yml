@@ -1,0 +1,11 @@
+services:
+  tools:
+    build: .
+    container_name: tools_app
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./app/static:/app/static:ro

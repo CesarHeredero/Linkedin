@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinkedIn Content Agent</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0A0F1E; color: #F9FAFB; font-family: Georgia, serif; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0A0F1E; }
+    ::-webkit-scrollbar-thumb { background: #1E2D4A; border-radius: 2px; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const API_CLAUDE = '/api/claude';
+
+// ─── Perfil de César ──────────────────────────────────────────────────────────
+const CESAR_PROFILE = `
+Eres César Heredero Herranz. Tu perfil profesional:
+- Lead UX/UI y Senior Product Owner con 10+ años de experiencia digital
+- Actualmente en Grupo Flexicar (ecommerce de automoción, España y Portugal)
+- Experiencia en: SEO técnico, analítica server-side (GTM SS, BigQuery, GA4), Core Web Vitals, automatización con n8n, gestión de producto (épicas, HUs, Scrum), UX/Figma, marketplace, CRO, RGPD
+- Ex-Devoteam (Toyota España, 6 años). Ganador Hackathon CardioXplore (nivel europeo)
+- Voz: directa, práctica, con experiencia real. Nada de humo. Ejemplos concretos del trabajo del día a día.
+- Audiencia LinkedIn: recruiters de producto/UX, Product Managers, UX Designers, directores digitales, equipos de ecommerce, profesionales de SEO/analítica
+- Idioma: siempre en español
+`;
+
+// ─── Prompts ──────────────────────────────────────────────────────────────────
+const PROMPTS = {
+  investigador: (tema) => `${CESAR_PROFILE}
+
+Eres el AGENTE INVESTIGADOR. Analiza el tema y prepara el debate.
+TEMA: "${tema}"
+
+1. Identifica 3 ángulos relevantes y debatibles para profesionales de producto/UX/digital en España
+2. Señala qué está pasando en la industria respecto a este tema (tendencias, fricciones)
+3. Prepara 2 posiciones opuestas y defendibles
+
+Responde SOLO en JSON válido:
+{
+  "tema": "...",
+  "contexto": "2-3 frases sobre la relevancia actual",
+  "angulos": ["ángulo 1", "ángulo 2", "ángulo 3"],
+  "posicion_a": { "titulo": "...", "argumento": "2-3 frases" },
+  "posicion_b": { "titulo": "...", "argumento": "2-3 frases" }
+}`,
+
+  debatista_a: (inv, pos) => `${CESAR_PROFILE}
+
+Eres el AGENTE DEBATISTA A. Defiendes esta posición con convicción y ejemplos concretos:
+POSICIÓN: "${pos.titulo}"
+ARGUMENTO BASE: "${pos.argumento}"
+CONTEXTO: ${inv.contexto}
+
+150-200 palabras. Usa ejemplos del mundo real (ecommerce, producto digital, UX). Tono directo. Termina con pregunta o afirmación provocadora.
+Solo el texto del argumento, sin títulos ni markdown.`,
+
+  debatista_b: (inv, pos, argA) => `${CESAR_PROFILE}
+
+Eres el AGENTE DEBATISTA B. Defiendes una posición contraria.
+POSICIÓN: "${pos.titulo}"
+ARGUMENTO BASE: "${pos.argumento}"
+
+El Agente A argumentó:
+"${argA}"
+
+Rebate específicamente 1-2 puntos del Agente A. 150-200 palabras. Termina con algo que invite a reflexionar.
+Solo el texto, sin títulos ni markdown.`,
+
+  editor: (tema, inv, argA, argB, formato) => `${CESAR_PROFILE}
+
+Eres el AGENTE EDITOR. Presenciaste el debate sobre: "${tema}"
+PERSPECTIVA A (${inv.posicion_a?.titulo}): "${argA}"
+PERSPECTIVA B (${inv.posicion_b?.titulo}): "${argB}"
+Contexto: ${inv.contexto}
+
+Escribe un ${formato === 'post' ? 'post de LinkedIn' : 'artículo de reflexión para LinkedIn'} desde la voz de César.
+
+${formato === 'post' ? `REGLAS POST:
+- 300-500 palabras máximo
+- Empieza con un gancho fuerte (NO "Hoy quiero hablar de...")
+- Saltos de línea frecuentes (máx 2-3 líneas por párrafo)
+- Incluye la tensión del debate pero llega a una conclusión propia
+- Termina con UNA pregunta a la audiencia
+- Máximo 3-4 hashtags al final` : `REGLAS ARTÍCULO:
+- 600-900 palabras
+- Estructura: Gancho → Contexto → Las dos caras → Tu posición → Conclusión accionable
+- Párrafos cortos, lenguaje directo
+- Al menos 1 ejemplo real de tu trabajo
+- Termina con reflexión y pregunta abierta
+- Máximo 4-5 hashtags al final`}
+
+Solo el texto listo para copiar en LinkedIn.`,
+
+  critico: (contenido, formato) => `Eres el AGENTE CRÍTICO. Evalúa este ${formato} de LinkedIn.
+
+CONTENIDO:
+"${contenido}"
+
+Responde SOLO en JSON:
+{
+  "puntuacion": número del 1 al 10,
+  "gancho": "evaluación del inicio en 1 frase",
+  "voz": "¿suena humano y auténtico o genérico?",
+  "puntos_fuertes": ["punto 1", "punto 2"],
+  "mejoras": ["mejora concreta 1", "mejora concreta 2"],
+  "veredicto": "PUBLICAR YA | REVISAR MENOR | REESCRIBIR"
+}`
+};
+
+// ─── Temas sugeridos ──────────────────────────────────────────────────────────
+const TEMAS = [
+  { cat: 'Producto', icon: '◈', items: [
+    '¿Tiene sentido tener un Product Owner en equipos pequeños?',
+    'El backlog infinito: síntoma de falta de estrategia',
+    'Historias de usuario vs. jobs-to-be-done: ¿cuál funciona de verdad?',
+    'Cuando el PO se convierte en secretario del equipo de desarrollo',
+  ]},
+  { cat: 'UX & Diseño', icon: '◇', items: [
+    'Diseñar con datos vs. diseñar con intuición',
+    'El A/B testing que nadie hace bien',
+    '¿Figma ha matado la creatividad en UX?',
+    'Accesibilidad web: ética o requisito legal',
+  ]},
+  { cat: 'SEO & Rendimiento', icon: '◉', items: [
+    'Core Web Vitals: ¿factor real de ranking o marketing de Google?',
+    'SEO técnico que el equipo de desarrollo siempre ignora',
+    'CMS headless: ¿solución o nuevo problema?',
+    'La trampa del contenido de IA en SEO',
+  ]},
+  { cat: 'Datos & Analítica', icon: '▲', items: [
+    'El 30% de tus datos de GA4 probablemente están mal',
+    'First-party data: la transición que pocos han hecho de verdad',
+    'Dashboards que nadie usa: por qué pasa y cómo evitarlo',
+    'RGPD vs. negocio: el equilibrio imposible',
+  ]},
+  { cat: 'Automatización & IA', icon: '⬡', items: [
+    'n8n vs. Zapier: cuándo usar cada uno',
+    'IA en el flujo de trabajo de producto: realidad vs. hype',
+    'Automatizar procesos sin romper nada (ni a nadie)',
+    'El equipo que no quiere automatizar nada',
+  ]},
+];
+
+// ─── Llamada a Claude vía servidor (streaming) ────────────────────────────────
+async function callClaudeStream(prompt, onChunk) {
+  const res = await fetch(API_CLAUDE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1500,
+      stream: true,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value);
+    const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+    for (const line of lines) {
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.type === 'content_block_delta' && data.delta?.text) {
+          full += data.delta.text;
+          onChunk(full);
+        }
+      } catch {}
+    }
+  }
+  return full;
+}
+
+// ─── Colores ──────────────────────────────────────────────────────────────────
+const C = {
+  bg: '#0A0F1E', panel: '#111827', border: '#1E2D4A',
+  accent: '#3B82F6', accentDim: '#1D4ED8', gold: '#F59E0B',
+  green: '#10B981', red: '#EF4444', text: '#F9FAFB',
+  muted: '#6B7280', card: '#151F35',
+};
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+export default function LinkedInAgent() {
+  const [fase, setFase] = useState('inicio');
+  const [temaPersonalizado, setTemaPersonalizado] = useState('');
+  const [temaSeleccionado, setTemaSeleccionado] = useState(null);
+  const [formato, setFormato] = useState('post');
+  const [logs, setLogs] = useState([]);
+  const [investigacion, setInvestigacion] = useState(null);
+  const [argA, setArgA] = useState('');
+  const [argB, setArgB] = useState('');
+  const [contenido, setContenido] = useState('');
+  const [critica, setCritica] = useState(null);
+  const [streamText, setStreamText] = useState('');
+  const [faseActual, setFaseActual] = useState('');
+  const [copiado, setCopiado] = useState(false);
+  const [hoveredTema, setHoveredTema] = useState(null);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs, streamText]);
+
+  const addLog = (msg, tipo = 'info') => setLogs(l => [...l, { msg, tipo, t: Date.now() }]);
+
+  const elegirTema = (tema) => { setTemaSeleccionado(tema); setFase('formato'); };
+
+  const iniciarGeneracion = async () => {
+    setFase('generando');
+    setLogs([]);
+    setStreamText('');
+    setInvestigacion(null);
+    setArgA(''); setArgB(''); setContenido(''); setCritica(null);
+
+    try {
+      // Agente 1: Investigador
+      setFaseActual('investigador');
+      addLog('🔍 Agente Investigador analizando el tema...', 'agente');
+      let raw = '';
+      await callClaudeStream(PROMPTS.investigador(temaSeleccionado), t => { raw = t; setStreamText(t); });
+      setStreamText('');
+
+      let inv;
+      try {
+        const m = raw.match(/\{[\s\S]*\}/);
+        inv = JSON.parse(m ? m[0] : raw);
+      } catch { throw new Error('El investigador no devolvió JSON válido'); }
+      setInvestigacion(inv);
+      addLog(`✓ Análisis listo. Ángulos: ${inv.angulos?.join(' · ')}`, 'ok');
+
+      // Agente 2: Debatista A
+      setFaseActual('debatista_a');
+      addLog(`⚔️ Agente A defiende: "${inv.posicion_a?.titulo}"`, 'agente');
+      let texA = '';
+      await callClaudeStream(PROMPTS.debatista_a(inv, inv.posicion_a), t => { texA = t; setStreamText(t); });
+      setStreamText('');
+      setArgA(texA);
+      addLog('✓ Posición A completada', 'ok');
+
+      // Agente 3: Debatista B
+      setFaseActual('debatista_b');
+      addLog(`⚔️ Agente B defiende: "${inv.posicion_b?.titulo}"`, 'agente');
+      let texB = '';
+      await callClaudeStream(PROMPTS.debatista_b(inv, inv.posicion_b, texA), t => { texB = t; setStreamText(t); });
+      setStreamText('');
+      setArgB(texB);
+      addLog('✓ Posición B completada', 'ok');
+
+      // Agente 4: Editor
+      setFaseActual('editor');
+      addLog(`✍️ Agente Editor escribiendo el ${formato}...`, 'agente');
+      let texC = '';
+      await callClaudeStream(PROMPTS.editor(temaSeleccionado, inv, texA, texB, formato), t => { texC = t; setStreamText(t); });
+      setStreamText('');
+      setContenido(texC);
+      addLog('✓ Contenido listo', 'ok');
+
+      // Agente 5: Crítico
+      setFaseActual('critico');
+      addLog('🎯 Agente Crítico evaluando...', 'agente');
+      let texD = '';
+      await callClaudeStream(PROMPTS.critico(texC, formato), t => { texD = t; setStreamText(t); });
+      setStreamText('');
+      try {
+        const m2 = texD.match(/\{[\s\S]*\}/);
+        setCritica(JSON.parse(m2 ? m2[0] : texD));
+      } catch { setCritica(null); }
+      addLog('✓ Evaluación completada', 'ok');
+
+      setFase('resultado');
+      setFaseActual('');
+    } catch (err) {
+      addLog(`✗ Error: ${err.message}`, 'error');
+      setFaseActual('');
+    }
+  };
+
+  const copiar = () => {
+    navigator.clipboard.writeText(contenido);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+
+  const reiniciar = () => {
+    setFase('inicio');
+    setTemaSeleccionado(null);
+    setTemaPersonalizado('');
+    setFormato('post');
+    setLogs([]);
+    setContenido('');
+    setCritica(null);
+  };
+
+  const S = {
+    app: { minHeight: '100vh', background: C.bg, color: C.text, fontFamily: 'Georgia, serif', padding: 0 },
+    header: { background: 'linear-gradient(135deg, #0F1F3D 0%, #1E3A5F 100%)', padding: '28px 32px 20px', borderBottom: `1px solid ${C.border}` },
+    logo: { fontSize: 11, letterSpacing: 4, color: C.accent, fontFamily: 'monospace', marginBottom: 6 },
+    title: { fontSize: 22, fontWeight: 'bold', color: C.text, margin: '0 0 4px' },
+    subtitle: { fontSize: 13, color: C.muted, fontFamily: 'system-ui' },
+    main: { padding: '28px 32px', maxWidth: 820, margin: '0 auto' },
+    sTitle: { fontSize: 11, letterSpacing: 3, color: C.accent, fontFamily: 'monospace', marginBottom: 16, display: 'block' },
+    catLabel: { fontSize: 10, letterSpacing: 2, color: C.gold, fontFamily: 'monospace', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 },
+    temaCard: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 16px', cursor: 'pointer', fontSize: 14, color: C.text, fontFamily: 'system-ui', transition: 'all 0.15s', marginBottom: 8, textAlign: 'left', width: '100%' },
+    temaCardHover: { borderColor: C.accent, background: '#1A2B4A' },
+    btn: { background: C.accent, color: '#fff', border: 'none', borderRadius: 8, padding: '12px 28px', fontSize: 14, fontFamily: 'system-ui', fontWeight: 600, cursor: 'pointer' },
+    btnSecondary: { background: 'transparent', color: C.accent, border: `1px solid ${C.accent}`, borderRadius: 8, padding: '10px 22px', fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer' },
+    input: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', fontSize: 14, color: C.text, fontFamily: 'system-ui', width: '100%', boxSizing: 'border-box', outline: 'none' },
+    logBox: { background: '#050A14', border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, fontFamily: 'monospace', fontSize: 12, minHeight: 120, maxHeight: 200, overflowY: 'auto' },
+    streamBox: { background: '#050A14', border: `1px solid ${C.accentDim}`, borderRadius: 8, padding: 16, fontFamily: 'system-ui', fontSize: 13, color: '#93C5FD', minHeight: 80, maxHeight: 220, overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.6 },
+    contentBox: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, fontSize: 14, lineHeight: 1.75, fontFamily: 'system-ui', color: C.text, whiteSpace: 'pre-wrap', minHeight: 200 },
+    pill: (v) => ({ display: 'inline-block', background: v === 'PUBLICAR YA' ? '#065F46' : v === 'REVISAR MENOR' ? '#78350F' : '#7F1D1D', color: '#fff', borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 'bold' }),
+    formatBtn: (active) => ({ background: active ? C.accent : C.card, color: active ? '#fff' : C.muted, border: `1px solid ${active ? C.accent : C.border}`, borderRadius: 8, padding: '10px 24px', fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer', fontWeight: active ? 600 : 400 }),
+  };
+
+  const logColor = { agente: '#60A5FA', ok: '#34D399', error: '#F87171', info: C.muted };
+
+  if (fase === 'inicio') return (
+    <div style={S.app}>
+      <div style={S.header}>
+        <div style={S.logo}>LINKEDIN CONTENT AGENT</div>
+        <h1 style={S.title}>Generador de contenido</h1>
+        <p style={S.subtitle}>5 agentes que investigan, debaten y escriben desde tu voz</p>
+      </div>
+      <div style={S.main}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 32 }}>
+          {[
+            { icon: '🔍', label: 'Investigador', desc: 'Analiza tendencias y prepara el debate' },
+            { icon: '⚔️', label: 'Debatistas A & B', desc: 'Dos perspectivas opuestas con argumentos reales' },
+            { icon: '✍️', label: 'Editor', desc: 'Sintetiza el debate en tu voz' },
+            { icon: '🎯', label: 'Crítico', desc: 'Puntúa y recomienda si publicar' },
+          ].map((a, i) => (
+            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '16px 18px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 22 }}>{a.icon}</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 'bold', fontFamily: 'system-ui', marginBottom: 3 }}>{a.label}</div>
+                <div style={{ fontSize: 12, color: C.muted, fontFamily: 'system-ui' }}>{a.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button style={S.btn} onClick={() => setFase('temas')}>Empezar → Elegir tema</button>
+      </div>
+    </div>
+  );
+
+  if (fase === 'temas') return (
+    <div style={S.app}>
+      <div style={S.header}>
+        <div style={S.logo}>AGENTE 1 · SELECCIÓN DE TEMA</div>
+        <h1 style={S.title}>¿Sobre qué escribimos hoy?</h1>
+        <p style={S.subtitle}>Elige un tema o escribe el tuyo</p>
+      </div>
+      <div style={S.main}>
+        {TEMAS.map(cat => (
+          <div key={cat.cat} style={{ marginBottom: 24 }}>
+            <div style={S.catLabel}><span style={{ fontSize: 16 }}>{cat.icon}</span>{cat.cat.toUpperCase()}</div>
+            {cat.items.map((tema, i) => (
+              <button key={i}
+                style={{ ...S.temaCard, ...(hoveredTema === `${cat.cat}-${i}` ? S.temaCardHover : {}) }}
+                onMouseEnter={() => setHoveredTema(`${cat.cat}-${i}`)}
+                onMouseLeave={() => setHoveredTema(null)}
+                onClick={() => elegirTema(tema)}
+              >{tema}</button>
+            ))}
+          </div>
+        ))}
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 24, marginTop: 8 }}>
+          <div style={S.catLabel}>▦ TEMA PERSONALIZADO</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input style={S.input} placeholder="Escribe tu propio tema..." value={temaPersonalizado}
+              onChange={e => setTemaPersonalizado(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && temaPersonalizado.trim() && elegirTema(temaPersonalizado.trim())}
+            />
+            <button style={{ ...S.btn, opacity: temaPersonalizado.trim() ? 1 : 0.4 }}
+              onClick={() => temaPersonalizado.trim() && elegirTema(temaPersonalizado.trim())}>→</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (fase === 'formato') return (
+    <div style={S.app}>
+      <div style={S.header}>
+        <div style={S.logo}>CONFIGURACIÓN</div>
+        <h1 style={S.title}>Tema elegido</h1>
+        <p style={S.subtitle}>"{temaSeleccionado}"</p>
+      </div>
+      <div style={S.main}>
+        <span style={S.sTitle}>¿QUÉ FORMATO?</span>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
+          <button style={S.formatBtn(formato === 'post')} onClick={() => setFormato('post')}>📝 Post (300-500 palabras)</button>
+          <button style={S.formatBtn(formato === 'articulo')} onClick={() => setFormato('articulo')}>📰 Artículo (600-900 palabras)</button>
+        </div>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 20px', marginBottom: 28, fontFamily: 'system-ui' }}>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
+            {formato === 'post' ? '✅ Ideal para generar engagement rápido. Más corto, impacto inmediato.' : '✅ Ideal para posicionarte como experto. Más profundo, más tiempo de lectura.'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button style={S.btn} onClick={iniciarGeneracion}>🚀 Generar contenido</button>
+          <button style={S.btnSecondary} onClick={() => setFase('temas')}>← Cambiar tema</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (fase === 'generando') return (
+    <div style={S.app}>
+      <div style={S.header}>
+        <div style={S.logo}>GENERANDO CONTENIDO</div>
+        <h1 style={S.title}>Los agentes están trabajando...</h1>
+        <p style={S.subtitle}>Tema: "{temaSeleccionado}"</p>
+      </div>
+      <div style={S.main}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+          {['investigador', 'debatista_a', 'debatista_b', 'editor', 'critico'].map((f, i) => (
+            <span key={f} style={{
+              padding: '4px 12px', borderRadius: 999, fontSize: 11, fontFamily: 'monospace',
+              background: faseActual === f ? C.accent : '#1A2B4A',
+              color: faseActual === f ? '#fff' : C.muted,
+              border: `1px solid ${faseActual === f ? C.accent : C.border}`,
+            }}>
+              {['🔍 Investigador', '⚔️ Debate A', '⚔️ Debate B', '✍️ Editor', '🎯 Crítico'][i]}
+            </span>
+          ))}
+        </div>
+
+        <div style={S.logBox}>
+          {logs.map((l, i) => (
+            <div key={i} style={{ color: logColor[l.tipo] || C.muted, marginBottom: 4 }}>
+              {l.msg}
+            </div>
+          ))}
+        </div>
+
+        {streamText && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 10, color: C.muted, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 8 }}>STREAM EN VIVO</div>
+            <div style={S.streamBox}>{streamText}</div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  );
+
+  if (fase === 'resultado') return (
+    <div style={S.app}>
+      <div style={S.header}>
+        <div style={S.logo}>RESULTADO</div>
+        <h1 style={S.title}>{formato === 'post' ? 'Post' : 'Artículo'} generado</h1>
+        <p style={S.subtitle}>"{temaSeleccionado}"</p>
+      </div>
+      <div style={S.main}>
+
+        {critica && (
+          <div style={{ background: '#0C1A0C', border: '1px solid #166534', borderRadius: 10, padding: 20, marginBottom: 24, fontFamily: 'system-ui' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, letterSpacing: 2, color: C.green, fontFamily: 'monospace' }}>EVALUACIÓN DEL CRÍTICO</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 36, fontWeight: 'bold', color: critica.puntuacion >= 7 ? C.green : critica.puntuacion >= 5 ? C.gold : C.red, fontFamily: 'Georgia' }}>
+                  {critica.puntuacion}<span style={{ fontSize: 16, color: C.muted }}>/10</span>
+                </div>
+                {critica.veredicto && <span style={S.pill(critica.veredicto)}>{critica.veredicto}</span>}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 13 }}>
+              <div>
+                <div style={{ fontSize: 10, color: C.green, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 6 }}>PUNTOS FUERTES</div>
+                {critica.puntos_fuertes?.map((p, i) => <div key={i} style={{ color: '#D1FAE5', marginBottom: 3 }}>✓ {p}</div>)}
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: C.gold, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 6 }}>MEJORAS</div>
+                {critica.mejoras?.map((m, i) => <div key={i} style={{ color: '#FEF3C7', marginBottom: 3 }}>→ {m}</div>)}
+              </div>
+            </div>
+            {critica.gancho && <div style={{ marginTop: 10, fontSize: 12, color: C.muted, fontStyle: 'italic' }}>Gancho: {critica.gancho}</div>}
+          </div>
+        )}
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, letterSpacing: 3, color: C.accent, fontFamily: 'monospace', marginBottom: 12 }}>
+            CONTENIDO LISTO PARA LINKEDIN
+          </div>
+          <div style={S.contentBox}>{contenido}</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button style={S.btn} onClick={copiar}>
+            {copiado ? '✓ Copiado!' : '📋 Copiar al portapapeles'}
+          </button>
+          <button style={S.btnSecondary} onClick={reiniciar}>↩ Nuevo contenido</button>
+        </div>
+
+        {investigacion && (
+          <div style={{ marginTop: 32, padding: 20, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, fontFamily: 'system-ui' }}>
+            <div style={{ fontSize: 10, color: C.muted, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 12 }}>DEBATE INTERNO</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, color: C.accent, fontFamily: 'monospace', marginBottom: 6 }}>PERSPECTIVA A</div>
+                <div style={{ fontSize: 12, color: C.muted, fontStyle: 'italic', marginBottom: 8 }}>{investigacion.posicion_a?.titulo}</div>
+                <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>{argA?.substring(0, 200)}...</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: C.gold, fontFamily: 'monospace', marginBottom: 6 }}>PERSPECTIVA B</div>
+                <div style={{ fontSize: 12, color: C.muted, fontStyle: 'italic', marginBottom: 8 }}>{investigacion.posicion_b?.titulo}</div>
+                <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>{argB?.substring(0, 200)}...</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  );
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<LinkedInAgent />);
+</script>
+</body>
+</html>
