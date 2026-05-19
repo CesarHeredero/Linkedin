@@ -1,10 +1,10 @@
 services:
-  tools:
+  agentes:
     build: .
-    container_name: tools_app
+    container_name: agentes_app
     restart: always
     ports:
-      - "8080:8080"
+      - "8082:8080"
     env_file:
       - .env
     volumes:
