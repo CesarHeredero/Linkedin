@@ -22,6 +22,8 @@ N8N_WEBHOOK = os.getenv("N8N_WEBHOOK", "")
 SESSION_SECRET = os.getenv("SESSION_SECRET", secrets.token_hex(32))
 APP_USERNAME = os.getenv("APP_USERNAME", "cesar")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
+ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
 
 LOGIN_HTML = """<!DOCTYPE html>
 <html lang="es">
@@ -200,6 +202,46 @@ async def send_telegram(request: Request):
         return {"ok": True, "via": "n8n"}
 
     return JSONResponse({"detail": "Error enviando Telegram"}, status_code=502)
+
+
+@app.get("/api/jobs")
+async def search_jobs(request: Request, q: str = "Product Owner UX", location: str = "España"):
+    if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
+        return JSONResponse({"detail": "Adzuna no configurado. Regístrate gratis en developer.adzuna.com y añade ADZUNA_APP_ID y ADZUNA_APP_KEY al .env"}, status_code=503)
+
+    params = {
+        "app_id": ADZUNA_APP_ID,
+        "app_key": ADZUNA_APP_KEY,
+        "results_per_page": 8,
+        "what": q,
+        "where": location,
+        "sort_by": "date",
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get("https://api.adzuna.com/v1/api/jobs/es/search/1", params=params)
+
+    if resp.status_code != 200:
+        return JSONResponse({"detail": f"Error Adzuna {resp.status_code}"}, status_code=502)
+
+    data = resp.json()
+    ofertas = []
+    for r in data.get("results", []):
+        s_min, s_max = r.get("salary_min"), r.get("salary_max")
+        salario = f"{int(s_min):,} – {int(s_max):,} €/año".replace(",", ".") if s_min and s_max else "No especificado"
+        title_lower = r.get("title", "").lower()
+        modalidad = "Remoto" if "remoto" in title_lower or "remote" in title_lower else "Presencial/Híbrido"
+        ofertas.append({
+            "id": r.get("id", ""),
+            "titulo": r.get("title", ""),
+            "empresa": r.get("company", {}).get("display_name", "Sin especificar"),
+            "ubicacion": r.get("location", {}).get("display_name", location),
+            "modalidad": modalidad,
+            "salario": salario,
+            "descripcion": r.get("description", "")[:600],
+            "url": r.get("redirect_url", ""),
+            "fecha": r.get("created", "")[:10],
+        })
+    return {"ofertas": ofertas, "total": data.get("count", 0)}
 
 
 static_path = Path(__file__).parent / "static"

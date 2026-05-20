@@ -125,43 +125,15 @@ function JobSearchAgent() {
     setOffers([]);
     setSelectedOffer(null);
     setCvResult(null);
-    log('🔍 Iniciando búsqueda de ofertas...');
-    log(`Query: "${searchQuery}"`);
-
-    const system = `Eres un agente de búsqueda de empleo especializado en el mercado español.
-Dado el perfil del candidato y una query, genera una lista de 6 ofertas de trabajo realistas y relevantes actualmente en España.
-Responde SOLO con JSON válido, sin texto adicional ni backticks. Formato exacto:
-{
-  "ofertas": [
-    {
-      "id": 1,
-      "titulo": "...",
-      "empresa": "...",
-      "ubicacion": "Madrid, España",
-      "modalidad": "Remoto|Híbrido|Presencial",
-      "salario": "XX.000 – XX.000 €/año",
-      "descripcion": "...",
-      "requisitos": ["req1", "req2", "req3"],
-      "encaje": 85,
-      "fuente": "LinkedIn|InfoJobs|Indeed"
-    }
-  ]
-}`;
-
-    const profileSummary = `Candidato: ${PROFILE.nombre}
-Título: ${PROFILE.titulo}
-Skills: ${PROFILE.skills.join(', ')}
-Empresa actual: ${PROFILE.experiencia[0].empresa} — ${PROFILE.experiencia[0].rol}
-Descripción: ${PROFILE.experiencia[0].descripcion}
-Búsqueda: ${PROFILE.busqueda}
-Query: ${searchQuery}`;
+    log('🔍 Buscando ofertas reales en Adzuna...');
 
     try {
-      log('🤖 Consultando agente IA...', 'info');
-      const raw = await callClaude([{ role: 'user', content: profileSummary }], system);
-      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
-      setOffers(parsed.ofertas || []);
-      log(`✅ ${parsed.ofertas?.length || 0} ofertas encontradas`, 'success');
+      const params = new URLSearchParams({ q: searchQuery, location: 'España' });
+      const res = await fetch(`/api/jobs?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
+      setOffers(data.ofertas || []);
+      log(`✅ ${data.ofertas?.length || 0} ofertas encontradas (de ${data.total} en total)`, 'success');
     } catch (e) {
       log('❌ Error: ' + e.message, 'error');
     }
@@ -227,8 +199,7 @@ Modalidad: ${selectedOffer.modalidad}`;
 💼 ${selectedOffer.titulo}
 📍 ${selectedOffer.ubicacion} · ${selectedOffer.modalidad}
 💰 ${selectedOffer.salario}
-📊 Encaje: <b>${selectedOffer.encaje}%</b>
-📌 Fuente: ${selectedOffer.fuente}
+${selectedOffer.url ? `🔗 <a href="${selectedOffer.url}">Ver oferta</a>` : ''}
 
 🔑 <b>Keywords clave:</b> ${cvResult.keywords_oferta?.join(', ')}
 
@@ -317,10 +288,10 @@ Modalidad: ${selectedOffer.modalidad}`;
             <p style={{ margin: 0, color: C.textMuted, fontSize: '0.75rem' }}>Busca ofertas adaptadas a tu perfil en LinkedIn, InfoJobs, Indeed</p>
           </div>
 
-          {/* Aviso importante */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.7rem 1rem', background: '#0f1a0e', border: `1px solid ${C.yellow}`, borderRadius: '8px', marginBottom: '1rem', fontSize: '0.72rem', color: C.yellow, lineHeight: 1.5 }}>
-            <span style={{ flexShrink: 0 }}>⚠️</span>
-            <span><b>Las ofertas son generadas por IA</b> como referencia orientativa, no son vacantes reales publicadas. Úsalas para preparar tu búsqueda y adaptar tu CV antes de buscar en LinkedIn o InfoJobs.</span>
+          {/* Info fuente */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.7rem 1rem', background: C.accentDim, border: `1px solid ${C.borderActive}`, borderRadius: '8px', marginBottom: '1rem', fontSize: '0.72rem', color: C.accent, lineHeight: 1.5 }}>
+            <span style={{ flexShrink: 0 }}>🌐</span>
+            <span><b>Ofertas reales</b> obtenidas de Adzuna, agregador de empleos de España. Haz clic en "Ver oferta" para aplicar directamente.</span>
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -338,32 +309,30 @@ Modalidad: ${selectedOffer.modalidad}`;
                   border: `1px solid ${selectedOffer?.id === o.id ? C.borderActive : C.border}`,
                   borderRadius: '10px', padding: '1rem', cursor: 'pointer', transition: 'all 0.2s',
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.88rem' }}>{o.titulo}</div>
-                      <div style={{ color: C.accent, fontSize: '0.75rem' }}>{o.empresa} · {o.ubicacion}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: o.encaje >= 80 ? C.green : o.encaje >= 60 ? C.yellow : C.red }}>{o.encaje}%</div>
-                      <div style={{ fontSize: '0.65rem', color: C.textMuted }}>encaje</div>
-                    </div>
+                  <div style={{ marginBottom: '0.4rem' }}>
+                    <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.88rem' }}>{o.titulo}</div>
+                    <div style={{ color: C.accent, fontSize: '0.75rem' }}>{o.empresa} · {o.ubicacion}</div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '0.65rem', color: C.textMuted }}>💰 {o.salario}</span>
                     <span style={{ fontSize: '0.65rem', color: C.textMuted }}>🏠 {o.modalidad}</span>
-                    <span style={{ fontSize: '0.65rem', color: C.textMuted }}>📌 {o.fuente}</span>
+                    {o.fecha && <span style={{ fontSize: '0.65rem', color: C.textMuted }}>📅 {o.fecha}</span>}
                   </div>
                   {selectedOffer?.id === o.id && (
                     <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: `1px solid ${C.borderActive}` }}>
-                      <div style={{ fontSize: '0.75rem', color: C.text, marginBottom: '0.4rem' }}>{o.descripcion}</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
-                        {o.requisitos?.map(r => (
-                          <span key={r} style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', background: '#0f1a0e', color: C.green, fontSize: '0.65rem' }}>{r}</span>
-                        ))}
+                      <div style={{ fontSize: '0.75rem', color: C.text, marginBottom: '0.75rem', lineHeight: 1.6 }}>{o.descripcion}</div>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button onClick={e => { e.stopPropagation(); setPhase(3); }} style={btn('accent')}>
+                          Generar CV para esta oferta →
+                        </button>
+                        {o.url && (
+                          <a href={o.url} target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            style={{ ...btn('ghost'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                            🔗 Ver oferta real
+                          </a>
+                        )}
                       </div>
-                      <button onClick={e => { e.stopPropagation(); setPhase(3); }} style={btn('accent')}>
-                        Generar CV para esta oferta →
-                      </button>
                     </div>
                   )}
                 </div>
@@ -396,7 +365,7 @@ Modalidad: ${selectedOffer.modalidad}`;
             <>
               <div style={{ padding: '0.75rem 1rem', background: C.accentDim, border: `1px solid ${C.borderActive}`, borderRadius: '8px', marginBottom: '1rem', fontSize: '0.78rem' }}>
                 <span style={{ color: C.accent, fontWeight: 700 }}>{selectedOffer.empresa}</span>
-                <span style={{ color: C.textMuted }}> · {selectedOffer.titulo} · {selectedOffer.encaje}% encaje</span>
+                <span style={{ color: C.textMuted }}> · {selectedOffer.titulo} · {selectedOffer.ubicacion}</span>
               </div>
 
               <button onClick={generarCV} disabled={generating} style={btn('primary', generating)}>
