@@ -10,10 +10,10 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0A0F1E; color: #F9FAFB; font-family: Georgia, serif; }
+    body { background: #080b0f; color: #e2e8f0; font-family: 'Space Mono', monospace; }
     ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #0A0F1E; }
-    ::-webkit-scrollbar-thumb { background: #1E2D4A; border-radius: 2px; }
+    ::-webkit-scrollbar-track { background: #080b0f; }
+    ::-webkit-scrollbar-thumb { background: #1c2230; border-radius: 2px; }
     @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -196,10 +196,10 @@ async function callClaudeStream(prompt, onChunk) {
 
 // ─── Colores ──────────────────────────────────────────────────────────────────
 const C = {
-  bg: '#0A0F1E', panel: '#111827', border: '#1E2D4A',
-  accent: '#3B82F6', accentDim: '#1D4ED8', gold: '#F59E0B',
-  green: '#10B981', red: '#EF4444', text: '#F9FAFB',
-  muted: '#6B7280', card: '#151F35',
+  bg: '#080b0f', panel: '#0e1117', border: '#1c2230',
+  accent: '#2dd4bf', accentDim: '#0d3530', gold: '#F59E0B',
+  green: '#10B981', red: '#EF4444', text: '#e2e8f0',
+  muted: '#64748b', card: '#0e1117',
 };
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -315,8 +315,8 @@ export default function LinkedInAgent() {
   };
 
   const S = {
-    app: { minHeight: '100vh', background: C.bg, color: C.text, fontFamily: 'Georgia, serif', padding: 0 },
-    header: { background: 'linear-gradient(135deg, #0F1F3D 0%, #1E3A5F 100%)', padding: '28px 32px 20px', borderBottom: `1px solid ${C.border}` },
+    app: { minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "'Space Mono', monospace", padding: 0 },
+    header: { background: 'linear-gradient(135deg, #0e1117 0%, #111827 100%)', padding: '28px 32px 20px', borderBottom: `1px solid ${C.border}` },
     logo: { fontSize: 11, letterSpacing: 4, color: C.accent, fontFamily: 'monospace', marginBottom: 6 },
     title: { fontSize: 22, fontWeight: 'bold', color: C.text, margin: '0 0 4px' },
     subtitle: { fontSize: 13, color: C.muted, fontFamily: 'system-ui' },
@@ -324,18 +324,18 @@ export default function LinkedInAgent() {
     sTitle: { fontSize: 11, letterSpacing: 3, color: C.accent, fontFamily: 'monospace', marginBottom: 16, display: 'block' },
     catLabel: { fontSize: 10, letterSpacing: 2, color: C.gold, fontFamily: 'monospace', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 },
     temaCard: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 16px', cursor: 'pointer', fontSize: 14, color: C.text, fontFamily: 'system-ui', transition: 'all 0.15s', marginBottom: 8, textAlign: 'left', width: '100%' },
-    temaCardHover: { borderColor: C.accent, background: '#1A2B4A' },
+    temaCardHover: { borderColor: C.accent, background: '#111827' },
     btn: { background: C.accent, color: '#fff', border: 'none', borderRadius: 8, padding: '12px 28px', fontSize: 14, fontFamily: 'system-ui', fontWeight: 600, cursor: 'pointer' },
     btnSecondary: { background: 'transparent', color: C.accent, border: `1px solid ${C.accent}`, borderRadius: 8, padding: '10px 22px', fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer' },
     input: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', fontSize: 14, color: C.text, fontFamily: 'system-ui', width: '100%', boxSizing: 'border-box', outline: 'none' },
-    logBox: { background: '#050A14', border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, fontFamily: 'monospace', fontSize: 12, minHeight: 120, maxHeight: 200, overflowY: 'auto' },
-    streamBox: { background: '#050A14', border: `1px solid ${C.accentDim}`, borderRadius: 8, padding: 16, fontFamily: 'system-ui', fontSize: 13, color: '#93C5FD', minHeight: 80, maxHeight: 220, overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.6 },
+    logBox: { background: '#05080c', border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, fontFamily: 'monospace', fontSize: 12, minHeight: 120, maxHeight: 200, overflowY: 'auto' },
+    streamBox: { background: '#05080c', border: `1px solid ${C.accentDim}`, borderRadius: 8, padding: 16, fontFamily: 'system-ui', fontSize: 13, color: '#5eead4', minHeight: 80, maxHeight: 220, overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.6 },
     contentBox: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, fontSize: 14, lineHeight: 1.75, fontFamily: 'system-ui', color: C.text, whiteSpace: 'pre-wrap', minHeight: 200 },
     pill: (v) => ({ display: 'inline-block', background: v === 'PUBLICAR YA' ? '#065F46' : v === 'REVISAR MENOR' ? '#78350F' : '#7F1D1D', color: '#fff', borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 'bold' }),
     formatBtn: (active) => ({ background: active ? C.accent : C.card, color: active ? '#fff' : C.muted, border: `1px solid ${active ? C.accent : C.border}`, borderRadius: 8, padding: '10px 24px', fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer', fontWeight: active ? 600 : 400 }),
   };
 
-  const logColor = { agente: '#60A5FA', ok: '#34D399', error: '#F87171', info: C.muted };
+  const logColor = { agente: '#2dd4bf', ok: '#34D399', error: '#F87171', info: C.muted };
 
   if (fase === 'inicio') return (
     <div style={S.app}>
@@ -440,7 +440,7 @@ export default function LinkedInAgent() {
           {['investigador', 'debatista_a', 'debatista_b', 'editor', 'critico'].map((f, i) => (
             <span key={f} style={{
               padding: '4px 12px', borderRadius: 999, fontSize: 11, fontFamily: 'monospace',
-              background: faseActual === f ? C.accent : '#1A2B4A',
+              background: faseActual === f ? C.accent : '#111827',
               color: faseActual === f ? '#fff' : C.muted,
               border: `1px solid ${faseActual === f ? C.accent : C.border}`,
             }}>
@@ -482,7 +482,7 @@ export default function LinkedInAgent() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{ fontSize: 11, letterSpacing: 2, color: C.green, fontFamily: 'monospace' }}>EVALUACIÓN DEL CRÍTICO</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ fontSize: 36, fontWeight: 'bold', color: critica.puntuacion >= 7 ? C.green : critica.puntuacion >= 5 ? C.gold : C.red, fontFamily: 'Georgia' }}>
+                <div style={{ fontSize: 36, fontWeight: 'bold', color: critica.puntuacion >= 7 ? C.green : critica.puntuacion >= 5 ? C.gold : C.red, fontFamily: 'monospace' }}>
                   {critica.puntuacion}<span style={{ fontSize: 16, color: C.muted }}>/10</span>
                 </div>
                 {critica.veredicto && <span style={S.pill(critica.veredicto)}>{critica.veredicto}</span>}

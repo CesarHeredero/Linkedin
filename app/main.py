@@ -1,10 +1,12 @@
 import os
 import secrets
+import time
+from collections import defaultdict
 from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -76,6 +78,22 @@ LOGIN_HTML = """<!DOCTYPE html>
 </html>"""
 
 
+# ── Rate limiter simple en memoria (max 30 llamadas/hora por sesión) ──────────
+_rate_store: dict = defaultdict(list)
+RATE_LIMIT = 30
+RATE_WINDOW = 3600
+
+
+def check_rate_limit(session_id: str) -> bool:
+    now = time.time()
+    calls = _rate_store[session_id]
+    _rate_store[session_id] = [t for t in calls if now - t < RATE_WINDOW]
+    if len(_rate_store[session_id]) >= RATE_LIMIT:
+        return False
+    _rate_store[session_id].append(now)
+    return True
+
+
 class AuthMiddleware(BaseHTTPMiddleware):
     PUBLIC = {"/login", "/api/login"}
 
@@ -107,6 +125,7 @@ async def do_login(request: Request, username: str = Form(...), password: str = 
         return HTMLResponse("APP_PASSWORD no configurado en .env", status_code=503)
     if username == APP_USERNAME and password == APP_PASSWORD:
         request.session["authenticated"] = True
+        request.session["session_id"] = secrets.token_hex(16)
         return RedirectResponse(url="/", status_code=302)
     return RedirectResponse(url="/login?error=1", status_code=302)
 
@@ -121,6 +140,10 @@ async def logout(request: Request):
 async def proxy_claude(request: Request):
     if not ANTHROPIC_API_KEY:
         return JSONResponse({"detail": "ANTHROPIC_API_KEY no configurado"}, status_code=503)
+
+    session_id = request.session.get("session_id", "anonymous")
+    if not check_rate_limit(session_id):
+        raise HTTPException(status_code=429, detail="Límite de llamadas alcanzado (30/hora). Espera un momento.")
 
     body = await request.json()
     stream = body.get("stream", False)

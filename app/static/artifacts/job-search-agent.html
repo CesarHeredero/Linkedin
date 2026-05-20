@@ -317,6 +317,12 @@ Modalidad: ${selectedOffer.modalidad}`;
             <p style={{ margin: 0, color: C.textMuted, fontSize: '0.75rem' }}>Busca ofertas adaptadas a tu perfil en LinkedIn, InfoJobs, Indeed</p>
           </div>
 
+          {/* Aviso importante */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.7rem 1rem', background: '#0f1a0e', border: `1px solid ${C.yellow}`, borderRadius: '8px', marginBottom: '1rem', fontSize: '0.72rem', color: C.yellow, lineHeight: 1.5 }}>
+            <span style={{ flexShrink: 0 }}>⚠️</span>
+            <span><b>Las ofertas son generadas por IA</b> como referencia orientativa, no son vacantes reales publicadas. Úsalas para preparar tu búsqueda y adaptar tu CV antes de buscar en LinkedIn o InfoJobs.</span>
+          </div>
+
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <input style={input} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="ej: Lead UX Product Owner Madrid" />
             <button onClick={buscarOfertas} disabled={searching || !searchQuery} style={{ ...btn('primary', searching || !searchQuery), whiteSpace: 'nowrap' }}>
