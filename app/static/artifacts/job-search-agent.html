@@ -101,7 +101,7 @@ async function callClaude(messages, system = '') {
 }
 
 // ── Componente principal ────────────────────────────────
-export default function JobSearchAgent() {
+function JobSearchAgent() {
   const [phase, setPhase] = useState(2);
   const [searchQuery, setSearchQuery] = useState('Lead UX Product Owner Madrid');
   const [offers, setOffers] = useState([]);
