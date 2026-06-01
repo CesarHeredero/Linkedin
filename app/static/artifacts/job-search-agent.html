@@ -88,7 +88,7 @@ const input = {
 
 // ── Llamada a Claude vía servidor ──────────────────────
 async function callClaude(messages, system = '') {
-  const body = { model: 'claude-sonnet-4-5', max_tokens: 1200, messages };
+  const body = { model: 'claude-sonnet-4-5', max_tokens: 3000, messages };
   if (system) body.system = system;
   const res = await fetch(API_CLAUDE, {
     method: 'POST',
