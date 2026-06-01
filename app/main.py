@@ -24,6 +24,7 @@ APP_USERNAME = os.getenv("APP_USERNAME", "cesar")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
 ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 LOGIN_HTML = """<!DOCTYPE html>
 <html lang="es">
@@ -202,6 +203,28 @@ async def send_telegram(request: Request):
         return {"ok": True, "via": "n8n"}
 
     return JSONResponse({"detail": "Error enviando Telegram"}, status_code=502)
+
+
+@app.post("/api/gemini")
+async def proxy_gemini(request: Request):
+    if not GEMINI_API_KEY:
+        return JSONResponse({"detail": "GEMINI_API_KEY no configurado"}, status_code=503)
+
+    body = await request.json()
+    payload = {
+        "contents": [{"parts": [{"text": body.get("prompt", "")}]}],
+        "generationConfig": {"maxOutputTokens": body.get("max_tokens", 2048), "temperature": 0.7},
+    }
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(url, json=payload)
+
+    if resp.status_code == 200:
+        data = resp.json()
+        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        return {"text": text}
+
+    return JSONResponse({"detail": f"Error Gemini {resp.status_code}: {resp.text[:200]}"}, status_code=resp.status_code)
 
 
 @app.get("/api/jobs")

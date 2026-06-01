@@ -24,6 +24,7 @@
 const { useState, useRef, useEffect } = React;
 
 const API_CLAUDE = '/api/claude';
+const API_GEMINI = '/api/gemini';
 
 // ─── Perfil de César ──────────────────────────────────────────────────────────
 const CESAR_PROFILE = `
@@ -122,7 +123,14 @@ Responde SOLO en JSON:
   "puntos_fuertes": ["punto 1", "punto 2"],
   "mejoras": ["mejora concreta 1", "mejora concreta 2"],
   "veredicto": "PUBLICAR YA | REVISAR MENOR | REESCRIBIR"
-}`
+}`,
+
+  imagen: (tema, contenido) => `LinkedIn post topic: "${tema}"
+Post excerpt: "${contenido.substring(0, 200)}"
+
+Generate a SHORT image prompt (max 25 words) for an AI image generator to create a professional LinkedIn cover image.
+Requirements: abstract/conceptual, no text, no letters, dark tones, clean minimal, tech/business aesthetic.
+Reply ONLY with the English image prompt.`,
 };
 
 // ─── Temas sugeridos ──────────────────────────────────────────────────────────
@@ -199,6 +207,21 @@ async function callClaudeStream(prompt, onChunk) {
   return full;
 }
 
+// ─── Llamada a Gemini vía servidor (sin streaming) ───────────────────────────
+async function callGemini(prompt, maxTokens = 2048) {
+  const res = await fetch(API_GEMINI, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, max_tokens: maxTokens }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Error Gemini ${res.status}`);
+  }
+  const data = await res.json();
+  return data.text || '';
+}
+
 // ─── Colores ──────────────────────────────────────────────────────────────────
 const C = {
   bg: '#080b0f', panel: '#0e1117', border: '#1c2230',
@@ -223,6 +246,10 @@ function LinkedInAgent() {
   const [faseActual, setFaseActual] = useState('');
   const [copiado, setCopiado] = useState(false);
   const [hoveredTema, setHoveredTema] = useState(null);
+  const [imagenUrl, setImagenUrl] = useState('');
+  const [historial, setHistorial] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('li_historial') || '[]'); } catch { return []; }
+  });
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -238,62 +265,72 @@ function LinkedInAgent() {
     setLogs([]);
     setStreamText('');
     setInvestigacion(null);
+    setImagenUrl('');
     setArgA(''); setArgB(''); setContenido(''); setCritica(null);
 
     try {
-      // Agente 1: Investigador
+      // Agente 1: Investigador → Gemini Flash (gratis)
       setFaseActual('investigador');
-      addLog('🔍 Agente Investigador analizando el tema...', 'agente');
-      let raw = '';
-      await callClaudeStream(PROMPTS.investigador(temaSeleccionado), t => { raw = t; setStreamText(t); });
-      setStreamText('');
-
+      addLog('🔍 Investigador analizando el tema... [Gemini]', 'agente');
+      const rawInv = await callGemini(PROMPTS.investigador(temaSeleccionado));
       let inv;
       try {
-        const m = raw.match(/\{[\s\S]*\}/);
-        inv = JSON.parse(m ? m[0] : raw);
+        const m = rawInv.match(/\{[\s\S]*\}/);
+        inv = JSON.parse(m ? m[0] : rawInv);
       } catch { throw new Error('El investigador no devolvió JSON válido'); }
       setInvestigacion(inv);
       addLog(`✓ Análisis listo. Ángulos: ${inv.angulos?.join(' · ')}`, 'ok');
 
-      // Agente 2: Debatista A
+      // Agente 2: Debatista A → Gemini Flash (gratis)
       setFaseActual('debatista_a');
-      addLog(`⚔️ Agente A defiende: "${inv.posicion_a?.titulo}"`, 'agente');
-      let texA = '';
-      await callClaudeStream(PROMPTS.debatista_a(inv, inv.posicion_a), t => { texA = t; setStreamText(t); });
-      setStreamText('');
+      addLog(`⚔️ Agente A: "${inv.posicion_a?.titulo}" [Gemini]`, 'agente');
+      const texA = await callGemini(PROMPTS.debatista_a(inv, inv.posicion_a));
       setArgA(texA);
       addLog('✓ Posición A completada', 'ok');
 
-      // Agente 3: Debatista B
+      // Agente 3: Debatista B → Gemini Flash (gratis)
       setFaseActual('debatista_b');
-      addLog(`⚔️ Agente B defiende: "${inv.posicion_b?.titulo}"`, 'agente');
-      let texB = '';
-      await callClaudeStream(PROMPTS.debatista_b(inv, inv.posicion_b, texA), t => { texB = t; setStreamText(t); });
-      setStreamText('');
+      addLog(`⚔️ Agente B: "${inv.posicion_b?.titulo}" [Gemini]`, 'agente');
+      const texB = await callGemini(PROMPTS.debatista_b(inv, inv.posicion_b, texA));
       setArgB(texB);
       addLog('✓ Posición B completada', 'ok');
 
-      // Agente 4: Editor
+      // Agente 4: Editor → Claude Sonnet streaming (pago, máxima calidad)
       setFaseActual('editor');
-      addLog(`✍️ Agente Editor escribiendo el ${formato}...`, 'agente');
+      addLog(`✍️ Editor escribiendo el ${formato}... [Claude]`, 'agente');
       let texC = '';
       await callClaudeStream(PROMPTS.editor(temaSeleccionado, inv, texA, texB, formato), t => { texC = t; setStreamText(t); });
       setStreamText('');
       setContenido(texC);
       addLog('✓ Contenido listo', 'ok');
 
-      // Agente 5: Crítico
+      // Agente 5: Crítico → Gemini Flash (gratis)
       setFaseActual('critico');
-      addLog('🎯 Agente Crítico evaluando...', 'agente');
-      let texD = '';
-      await callClaudeStream(PROMPTS.critico(texC, formato), t => { texD = t; setStreamText(t); });
-      setStreamText('');
+      addLog('🎯 Crítico evaluando... [Gemini]', 'agente');
+      const texD = await callGemini(PROMPTS.critico(texC, formato));
       try {
         const m2 = texD.match(/\{[\s\S]*\}/);
         setCritica(JSON.parse(m2 ? m2[0] : texD));
       } catch { setCritica(null); }
       addLog('✓ Evaluación completada', 'ok');
+
+      // Agente 6: Imagen → Gemini genera prompt → Pollinations.ai (todo gratis)
+      setFaseActual('imagen');
+      addLog('🖼️ Generando imagen para LinkedIn... [Pollinations]', 'agente');
+      const imgPromptRaw = await callGemini(PROMPTS.imagen(temaSeleccionado, texC), 100);
+      const imgPrompt = imgPromptRaw.trim().replace(/["']/g, '');
+      const seed = Math.floor(Math.random() * 99999);
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(imgPrompt)}?width=1200&height=628&model=flux&nologo=true&seed=${seed}`;
+      setImagenUrl(url);
+      addLog('✓ Imagen generada', 'ok');
+
+      // Guardar en historial (localStorage)
+      const entrada = { id: Date.now(), tema: temaSeleccionado, formato, contenido: texC, imagenUrl: url, fecha: new Date().toLocaleDateString('es-ES') };
+      setHistorial(prev => {
+        const nuevo = [entrada, ...prev].slice(0, 20);
+        localStorage.setItem('li_historial', JSON.stringify(nuevo));
+        return nuevo;
+      });
 
       setFase('resultado');
       setFaseActual('');
@@ -317,6 +354,7 @@ function LinkedInAgent() {
     setLogs([]);
     setContenido('');
     setCritica(null);
+    setImagenUrl('');
   };
 
   const S = {
@@ -367,6 +405,24 @@ function LinkedInAgent() {
           ))}
         </div>
         <button style={S.btn} onClick={() => setFase('temas')}>Empezar → Elegir tema</button>
+
+        {historial.length > 0 && (
+          <div style={{ marginTop: 32 }}>
+            <div style={{ fontSize: 11, letterSpacing: 3, color: C.muted, fontFamily: 'monospace', marginBottom: 16 }}>HISTORIAL ({historial.length})</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {historial.map(h => (
+                <div key={h.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '14px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', cursor: 'pointer' }}
+                  onClick={() => { setContenido(h.contenido); setTemaSeleccionado(h.tema); setFormato(h.formato); setImagenUrl(h.imagenUrl || ''); setCritica(null); setFase('resultado'); }}>
+                  {h.imagenUrl && <img src={h.imagenUrl} alt="" style={{ width: 80, height: 42, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: '#fff', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.tema}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{h.formato} · {h.fecha}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -442,14 +498,14 @@ function LinkedInAgent() {
       </div>
       <div style={S.main}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-          {['investigador', 'debatista_a', 'debatista_b', 'editor', 'critico'].map((f, i) => (
+          {['investigador', 'debatista_a', 'debatista_b', 'editor', 'critico', 'imagen'].map((f, i) => (
             <span key={f} style={{
               padding: '4px 12px', borderRadius: 999, fontSize: 11, fontFamily: 'monospace',
               background: faseActual === f ? C.accent : '#111827',
               color: faseActual === f ? '#fff' : C.muted,
               border: `1px solid ${faseActual === f ? C.accent : C.border}`,
             }}>
-              {['🔍 Investigador', '⚔️ Debate A', '⚔️ Debate B', '✍️ Editor', '🎯 Crítico'][i]}
+              {['🔍 Investigador', '⚔️ Debate A', '⚔️ Debate B', '✍️ Editor', '🎯 Crítico', '🖼️ Imagen'][i]}
             </span>
           ))}
         </div>
@@ -504,6 +560,19 @@ function LinkedInAgent() {
               </div>
             </div>
             {critica.gancho && <div style={{ marginTop: 10, fontSize: 12, color: C.muted, fontStyle: 'italic' }}>Gancho: {critica.gancho}</div>}
+          </div>
+        )}
+
+        {imagenUrl && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, letterSpacing: 3, color: C.accent, fontFamily: 'monospace', marginBottom: 12 }}>IMAGEN PARA LINKEDIN</div>
+            <img src={imagenUrl} alt="LinkedIn post image" style={{ width: '100%', borderRadius: 10, border: `1px solid ${C.border}`, display: 'block' }} />
+            <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+              <a href={imagenUrl} download="linkedin-imagen.jpg" target="_blank" rel="noopener noreferrer"
+                style={{ ...S.btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                ⬇ Descargar imagen
+              </a>
+            </div>
           </div>
         )}
 
