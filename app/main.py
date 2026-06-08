@@ -249,6 +249,18 @@ async def save_historial(request: Request):
         return JSONResponse({"detail": str(e)}, status_code=500)
 
 
+@app.get("/api/gemini-models")
+async def list_gemini_models(request: Request):
+    if not GEMINI_API_KEY:
+        return JSONResponse({"detail": "GEMINI_API_KEY no configurado"}, status_code=503)
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(f"https://generativelanguage.googleapis.com/v1/models?key={GEMINI_API_KEY}")
+    if resp.status_code == 200:
+        names = [m["name"] for m in resp.json().get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
+        return {"models": names}
+    return JSONResponse({"detail": resp.text[:300]}, status_code=resp.status_code)
+
+
 @app.post("/api/gemini")
 async def proxy_gemini(request: Request):
     if not GEMINI_API_KEY:
