@@ -271,7 +271,7 @@ async def proxy_gemini(request: Request):
         "contents": [{"parts": [{"text": body.get("prompt", "")}]}],
         "generationConfig": {"maxOutputTokens": body.get("max_tokens", 2048), "temperature": 0.7},
     }
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={GEMINI_API_KEY}"
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(url, json=payload)
 
