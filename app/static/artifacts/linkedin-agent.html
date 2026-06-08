@@ -247,9 +247,15 @@ function LinkedInAgent() {
   const [copiado, setCopiado] = useState(false);
   const [hoveredTema, setHoveredTema] = useState(null);
   const [imagenUrl, setImagenUrl] = useState('');
-  const [historial, setHistorial] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('li_historial') || '[]'); } catch { return []; }
-  });
+  const [historial, setHistorial] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/historial').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.historial) setHistorial(d.historial.map(r => ({
+        id: r.ID, fecha: r.Fecha, tema: r.Tema, formato: r.Formato, contenido: r.Contenido, imagenUrl: r.ImagenURL
+      })));
+    }).catch(() => {});
+  }, []);
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -324,13 +330,10 @@ function LinkedInAgent() {
       setImagenUrl(url);
       addLog('✓ Imagen generada', 'ok');
 
-      // Guardar en historial (localStorage)
-      const entrada = { id: Date.now(), tema: temaSeleccionado, formato, contenido: texC, imagenUrl: url, fecha: new Date().toLocaleDateString('es-ES') };
-      setHistorial(prev => {
-        const nuevo = [entrada, ...prev].slice(0, 20);
-        localStorage.setItem('li_historial', JSON.stringify(nuevo));
-        return nuevo;
-      });
+      // Guardar en Google Sheets
+      const entrada = { id: Date.now(), fecha: new Date().toLocaleDateString('es-ES'), tema: temaSeleccionado, formato, contenido: texC, imagenUrl: url };
+      fetch('/api/historial', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entrada) }).catch(() => {});
+      setHistorial(prev => [entrada, ...prev].slice(0, 20));
 
       setFase('resultado');
       setFaseActual('');
