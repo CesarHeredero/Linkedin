@@ -26,7 +26,7 @@ ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
 ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1jty9n0zSmMCcCFlkzVpNdn1feoS_wPEo5FsnJym-eqg")
-GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "/app/credentials.json")
+GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON", "")
 
 LOGIN_HTML = """<!DOCTYPE html>
 <html lang="es">
@@ -208,31 +208,36 @@ async def send_telegram(request: Request):
 
 
 def _get_sheet():
+    import json as _json
     import gspread
     from google.oauth2.service_account import Credentials
-    creds = Credentials.from_service_account_file(
-        GOOGLE_CREDENTIALS_PATH,
-        scopes=["https://www.googleapis.com/auth/spreadsheets"],
-    )
-    return gspread.authorize(creds).open_by_key(GOOGLE_SHEET_ID).sheet1
+    if not GOOGLE_CREDENTIALS_JSON:
+        raise ValueError("GOOGLE_CREDENTIALS_JSON no configurado en .env")
+    creds_dict = _json.loads(GOOGLE_CREDENTIALS_JSON)
+    creds = Credentials.from_service_account_info(creds_dict, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+    client = gspread.authorize(creds)
+    sheet = client.open_by_key(GOOGLE_SHEET_ID).sheet1
+    # Crear cabecera si la hoja está vacía
+    if not sheet.row_values(1):
+        sheet.append_row(["ID", "Fecha", "Tema", "Formato", "Contenido", "ImagenURL"])
+    return sheet
 
 
 @app.get("/api/historial")
 async def get_historial(request: Request):
-    if not Path(GOOGLE_CREDENTIALS_PATH).exists():
-        return JSONResponse({"detail": "credentials.json no encontrado"}, status_code=503)
+    if not GOOGLE_CREDENTIALS_JSON:
+        return JSONResponse({"historial": [], "configured": False})
     try:
-        sheet = _get_sheet()
-        rows = sheet.get_all_records()
-        return {"historial": rows}
+        rows = _get_sheet().get_all_records()
+        return {"historial": rows, "configured": True}
     except Exception as e:
         return JSONResponse({"detail": str(e)}, status_code=500)
 
 
 @app.post("/api/historial")
 async def save_historial(request: Request):
-    if not Path(GOOGLE_CREDENTIALS_PATH).exists():
-        return JSONResponse({"detail": "credentials.json no encontrado"}, status_code=503)
+    if not GOOGLE_CREDENTIALS_JSON:
+        return JSONResponse({"ok": False, "detail": "Google Sheets no configurado"})
     try:
         body = await request.json()
         sheet = _get_sheet()
