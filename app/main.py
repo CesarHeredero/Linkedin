@@ -8,7 +8,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -345,6 +345,17 @@ async def search_jobs(request: Request, q: str = "Product Owner UX", location: s
             "fecha": r.get("created", "")[:10],
         })
     return {"ofertas": ofertas, "total": data.get("count", 0)}
+
+
+@app.get("/api/image")
+async def proxy_image(request: Request, prompt: str, width: int = 1200, height: int = 628, seed: int = 42):
+    from urllib.parse import quote
+    url = f"https://image.pollinations.ai/prompt/{quote(prompt)}?width={width}&height={height}&model=flux&nologo=true&seed={seed}"
+    async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
+        resp = await client.get(url)
+    if resp.status_code != 200:
+        return JSONResponse({"detail": f"Error generando imagen: {resp.status_code}"}, status_code=502)
+    return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
 
 
 static_path = Path(__file__).parent / "static"

@@ -320,13 +320,13 @@ function LinkedInAgent() {
       } catch { setCritica(null); }
       addLog('✓ Evaluación completada', 'ok');
 
-      // Agente 6: Imagen → Gemini genera prompt → Pollinations.ai (todo gratis)
+      // Agente 6: Imagen → Gemini genera prompt → Pollinations.ai vía backend (evita rate limit IP)
       setFaseActual('imagen');
-      addLog('🖼️ Generando imagen para LinkedIn... [Pollinations]', 'agente');
+      addLog('🖼️ Generando imagen para LinkedIn... [Pollinations via servidor]', 'agente');
       const imgPromptRaw = await callGemini(PROMPTS.imagen(temaSeleccionado, texC), 100);
       const imgPrompt = imgPromptRaw.trim().replace(/["']/g, '');
       const seed = Math.floor(Math.random() * 99999);
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(imgPrompt)}?width=1200&height=628&model=flux&nologo=true&seed=${seed}`;
+      const url = `/api/image?prompt=${encodeURIComponent(imgPrompt)}&width=1200&height=628&seed=${seed}`;
       setImagenUrl(url);
       addLog('✓ Imagen generada', 'ok');
 
