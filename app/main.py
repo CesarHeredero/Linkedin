@@ -350,12 +350,33 @@ async def search_jobs(request: Request, q: str = "Product Owner UX", location: s
 @app.get("/api/image")
 async def proxy_image(request: Request, prompt: str, width: int = 1200, height: int = 628, seed: int = 42):
     from urllib.parse import quote
-    url = f"https://image.pollinations.ai/prompt/{quote(prompt)}?width={width}&height={height}&model=flux&nologo=true&seed={seed}"
-    async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
-        resp = await client.get(url)
-    if resp.status_code != 200:
-        return JSONResponse({"detail": f"Error generando imagen: {resp.status_code}"}, status_code=502)
-    return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+    import asyncio
+
+    # Try Pollinations.ai (3 attempts, 3s apart)
+    poll_url = f"https://image.pollinations.ai/prompt/{quote(prompt)}?width={width}&height={height}&model=flux&nologo=true&seed={seed}"
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+                resp = await client.get(poll_url)
+            if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/"):
+                return Response(content=resp.content, media_type=resp.headers["content-type"])
+        except Exception:
+            pass
+        if attempt < 2:
+            await asyncio.sleep(3)
+
+    # Fallback: loremflickr — relevant stock photos, no API key, no rate limits
+    keywords = ",".join(w for w in prompt.split() if len(w) > 3)[:80]
+    fallback_url = f"https://loremflickr.com/{width}/{height}/{quote(keywords)}"
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            resp = await client.get(fallback_url)
+        if resp.status_code == 200:
+            return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+    except Exception:
+        pass
+
+    return JSONResponse({"detail": "No se pudo generar la imagen"}, status_code=502)
 
 
 static_path = Path(__file__).parent / "static"
