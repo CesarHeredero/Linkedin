@@ -213,7 +213,12 @@ def _get_sheet():
     from google.oauth2.service_account import Credentials
     if not GOOGLE_CREDENTIALS_JSON:
         raise ValueError("GOOGLE_CREDENTIALS_JSON no configurado en .env")
-    creds_dict = _json.loads(GOOGLE_CREDENTIALS_JSON)
+    # Strip cualquier prefijo accidental antes del JSON real
+    raw = GOOGLE_CREDENTIALS_JSON
+    idx = raw.find('{')
+    if idx > 0:
+        raw = raw[idx:]
+    creds_dict = _json.loads(raw)
     creds = Credentials.from_service_account_info(creds_dict, scopes=["https://www.googleapis.com/auth/spreadsheets"])
     client = gspread.authorize(creds)
     sheet = client.open_by_key(GOOGLE_SHEET_ID).sheet1
