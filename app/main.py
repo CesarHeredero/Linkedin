@@ -263,24 +263,38 @@ async def list_gemini_models(request: Request):
 
 @app.post("/api/gemini")
 async def proxy_gemini(request: Request):
-    if not GEMINI_API_KEY:
-        return JSONResponse({"detail": "GEMINI_API_KEY no configurado"}, status_code=503)
-
     body = await request.json()
-    payload = {
-        "contents": [{"parts": [{"text": body.get("prompt", "")}]}],
-        "generationConfig": {"maxOutputTokens": body.get("max_tokens", 2048), "temperature": 0.7},
-    }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={GEMINI_API_KEY}"
+    prompt = body.get("prompt", "")
+    max_tokens = body.get("max_tokens", 2048)
+
+    # Intentar Gemini si hay clave configurada
+    if GEMINI_API_KEY:
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.7},
+        }
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={GEMINI_API_KEY}"
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload)
+        if resp.status_code == 200:
+            data = resp.json()
+            text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            return {"text": text}
+        if resp.status_code not in (429, 503):
+            return JSONResponse({"detail": f"Error Gemini {resp.status_code}: {resp.text[:200]}"}, status_code=resp.status_code)
+        # 429/503 → fallback a Claude Haiku
+
+    # Fallback: Claude Haiku (barato, rápido, para agentes de soporte)
+    if not ANTHROPIC_API_KEY:
+        return JSONResponse({"detail": "Gemini no disponible y ANTHROPIC_API_KEY no configurado"}, status_code=503)
+
+    headers = {"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+    claude_payload = {"model": "claude-haiku-4-5-20251001", "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
     async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(url, json=payload)
-
+        resp = await client.post("https://api.anthropic.com/v1/messages", json=claude_payload, headers=headers)
     if resp.status_code == 200:
-        data = resp.json()
-        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-        return {"text": text}
-
-    return JSONResponse({"detail": f"Error Gemini {resp.status_code}: {resp.text[:200]}"}, status_code=resp.status_code)
+        return {"text": resp.json().get("content", [{}])[0].get("text", "")}
+    return JSONResponse({"detail": f"Error Claude fallback {resp.status_code}"}, status_code=resp.status_code)
 
 
 @app.get("/api/jobs")
