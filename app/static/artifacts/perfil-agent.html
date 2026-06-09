@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perfil LinkedIn Agent</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:#080b0f;color:#e2e8f0;font-family:'Space Mono',monospace}
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:#080b0f}
+    ::-webkit-scrollbar-thumb{background:#1c2230;border-radius:2px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const C = {
+  bg:'#080b0f', surface:'#0e1117', border:'#1c2230',
+  text:'#e2e8f0', muted:'#64748b', accent:'#2dd4bf',
+  accentDim:'rgba(45,212,191,0.08)', ok:'#22c55e',
+  error:'#ef4444', warn:'#f59e0b',
+};
+
+const S = {
+  page:{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Space Mono',monospace", paddingBottom:60 },
+  wrap:{ maxWidth:780, margin:'0 auto', padding:'0 20px' },
+  card:{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:'20px 22px', marginBottom:16 },
+  cardAccent:{ background:C.surface, border:`1px solid ${C.accent}`, borderRadius:12, padding:'20px 22px', marginBottom:16 },
+  label:{ fontSize:10, letterSpacing:3, color:C.accent, marginBottom:10, display:'block' },
+  labelMuted:{ fontSize:10, letterSpacing:3, color:C.muted, marginBottom:8, display:'block' },
+  text:{ fontSize:13, color:C.text, lineHeight:1.8 },
+  small:{ fontSize:12, color:C.muted, lineHeight:1.7 },
+  btnPrimary:{ background:C.accent, color:'#000', border:'none', borderRadius:8, padding:'12px 28px', fontFamily:"'Space Mono',monospace", fontSize:13, fontWeight:700, cursor:'pointer' },
+  btnSec:{ background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, borderRadius:8, padding:'10px 20px', fontFamily:"'Space Mono',monospace", fontSize:12, cursor:'pointer' },
+  btnGhost:{ background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 16px', fontFamily:"'Space Mono',monospace", fontSize:11, cursor:'pointer' },
+  tag:{ display:'inline-block', background:C.accentDim, color:C.accent, border:`1px solid rgba(45,212,191,0.2)`, borderRadius:4, padding:'2px 8px', fontSize:11, marginRight:5, marginBottom:4 },
+  tagGray:{ display:'inline-block', background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:4, padding:'2px 8px', fontSize:11, marginRight:5, marginBottom:4 },
+};
+
+// ─── Perfil actual de César (LinkedIn export + logros documentados) ────────
+const PERFIL_SEED = {
+  titular: "Lead UX/UI & Product Owner | Análisis Funcional | Automatización de procesos (n8n) | Diseño basado en experimentación (A/B Testing)",
+  about: `Soy un perfil híbrido que combina el diseño de producto con una sólida capacidad de análisis funcional y visión de negocio. Mi enfoque como Lead UX/UI va más allá de lo visual: me involucro en la definición estratégica asumiendo funciones de Product Owner, asegurando que cada funcionalidad responda a una necesidad real y sea técnicamente viable.
+
+Producto y Análisis: Redacción de análisis funcionales y definición de requerimientos. Actúo como nexo entre los stakeholders y el equipo técnico para transformar ideas en especificaciones claras.
+
+Eficiencia Técnica (n8n): Me apasiona la optimización de procesos. Utilizo n8n para crear automatizaciones que conectan herramientas y eliminan tareas manuales, mejorando el flujo de trabajo del proyecto.
+
+Validación de Diseño: Cuento con formación básica en CRO, lo que me permite diseñar y ejecutar Tests A/B para validar decisiones de interfaz con datos reales.
+
+Disfruto resolviendo problemas complejos a través de la lógica, el diseño y la tecnología.`,
+  experiencias: [
+    {
+      empresa: "Grupo Flexicar",
+      puesto: "Responsable diseño UX/UI",
+      periodo: "Abril 2023 – Presente (3 años)",
+      descripcion: "Me encargo de analizar, organizar, diseñar y actualizar toda la parte UX/UI del Grupo Flexicar. Tanto la web corporativa como el CRM. Para España y Portugal."
+    },
+    {
+      empresa: "Devoteam / Toyota España",
+      puesto: "Consultant UX/UI Designer",
+      periodo: "Dic 2016 – Abr 2023 (6 años 5 meses)",
+      descripcion: "Proyecto dentro de Toyota España durante 6.5 años. Ganador Hackathon CardioXplore a nivel europeo (octubre 2021) — equipo con cardiólogos y pacientes."
+    }
+  ],
+  skills: ["n8n", "Gestión de proyectos", "Figma"],
+  logros: [
+    "8+ proyectos liderados como PO en paralelo (enero–abril 2026)",
+    "30+ historias de usuario con criterios de aceptación definidos",
+    "Migración de 1.092+ URLs a CMS headless (Directus) preservando SEO",
+    "Recuperación de medición del 28% de usuarios con cookies rechazadas (GTM server-side)",
+    "Arquitectura SEO técnica para +50.000 fichas de vehículos",
+    "10+ informes WPO con dashboards interactivos (Core Web Vitals)",
+    "Ganador Hackathon CardioXplore a nivel europeo"
+  ],
+  logros_adicionales: []
+};
+
+const OBJETIVO = `Lead UX/UI, Senior Product Owner, o dar el salto a Product Manager / Head of Product.
+Preferencia: remoto o híbrido en España.
+IMPORTANTE: César gestiona proyectos de SEO, Analytics y WPO como parte de su rol de producto, pero NO busca ni quiere puestos de especialista en esas áreas. Es un líder de producto con visión técnica amplia, no un especialista técnico.`;
+
+// ─── Prompts ─────────────────────────────────────────────────────────────────
+function promptRecruiter(p) {
+  const logrosExtra = p.logros_adicionales?.length
+    ? '\nProyectos/logros adicionales recientes:\n' + p.logros_adicionales.map(l => `- ${l}`).join('\n')
+    : '';
+  return `Eres un recruiter senior con 10 años de experiencia colocando perfiles de producto digital y UX/UI en empresas tech/ecommerce en España. Recibes 200 CVs a la semana.
+
+Buscas candidatos para: Lead UX/UI, Senior Product Owner, Product Manager en empresas de 50-500 empleados.
+
+PERFIL A ANALIZAR:
+Titular: "${p.titular}"
+About: "${p.about.slice(0, 500)}"
+Experiencia principal: ${p.experiencias[0].empresa} – ${p.experiencias[0].puesto} (${p.experiencias[0].periodo})
+Experiencia previa: ${p.experiencias[1].empresa} – ${p.experiencias[1].puesto} (${p.experiencias[1].periodo})
+Skills visibles: ${p.skills.join(', ')}
+Logros documentados:
+${p.logros.map(l => `- ${l}`).join('\n')}${logrosExtra}
+
+Analiza este perfil con ojo crítico. Responde en JSON:
+{"primera_impresion":"qué ves en 30 segundos (2 frases)","descartaria_por":["razón concreta 1","razón 2"],"llamaria_por":["razón que te hace coger el teléfono 1","razón 2"],"titular_evaluacion":"qué falla en el titular y por qué","about_evaluacion":"qué falla en el extracto y por qué","keywords_que_faltan":["keyword ATS relevante 1","keyword 2","keyword 3","keyword 4"],"cambio_mas_urgente":"UN cambio que haría ya"}
+Solo JSON válido.`;
+}
+
+function promptHiringManager(p) {
+  const logrosExtra = p.logros_adicionales?.length
+    ? '\nProyectos adicionales:\n' + p.logros_adicionales.map(l => `- ${l}`).join('\n')
+    : '';
+  return `Eres Head of Product en una empresa de ecommerce española de 200 empleados. Necesitas contratar un Lead UX/UI o Senior PO que gestione proyectos estratégicos, lidere con stakeholders y tenga mentalidad de negocio.
+
+PERFIL:
+Titular: "${p.titular}"
+Experiencia: ${p.experiencias[0].empresa} (${p.experiencias[0].periodo}) + ${p.experiencias[1].empresa} (${p.experiencias[1].periodo})
+Logros:
+${p.logros.map(l => `- ${l}`).join('\n')}${logrosExtra}
+
+Evalúa honestamente en JSON:
+{"lo_que_buscas":"qué necesitas tú en 2 frases","encaja_porque":["evidencia concreta del perfil 1","evidencia 2"],"duda_principal":"la mayor incertidumbre que te genera","impacto_negocio":"¿comunica impacto real o solo tareas? evalúa honestamente","liderazgo_percibido":"¿se percibe capacidad de liderar equipos? ¿por qué sí/no?","diferenciador_real":"qué tiene este perfil que no tienen el 80% de los UX Leads/POs del mercado","como_deberia_presentarse":"cómo debería posicionarse para que lo llames hoy"}
+Solo JSON válido.`;
+}
+
+function promptEditor(p, rec, hm) {
+  const logrosExtra = p.logros_adicionales?.length
+    ? '\nProyectos adicionales:\n' + p.logros_adicionales.map(l => `- ${l}`).join('\n')
+    : '';
+  return `Eres experto en personal branding para perfiles de producto digital en España. Tu misión: transformar este perfil de LinkedIn para conseguir entrevistas.
+
+OBJETIVO DEL CANDIDATO: ${OBJETIVO}
+
+PERFIL ACTUAL:
+Titular: "${p.titular}"
+About (resumido): "${p.about.slice(0, 300)}..."
+Experiencia Flexicar: "${p.experiencias[0].descripcion}"
+Skills: ${p.skills.join(', ')}
+
+ANÁLISIS RECRUITER:
+- Primera impresión: ${rec.primera_impresion || ''}
+- Descartaría por: ${(rec.descartaria_por||[]).join('; ')}
+- Llamaría por: ${(rec.llamaria_por||[]).join('; ')}
+- Keywords que faltan: ${(rec.keywords_que_faltan||[]).join(', ')}
+- Cambio urgente: ${rec.cambio_mas_urgente || ''}
+
+ANÁLISIS HIRING MANAGER:
+- Diferenciador real: ${hm.diferenciador_real || ''}
+- Duda principal: ${hm.duda_principal || ''}
+- Impacto de negocio actual: ${hm.impacto_negocio || ''}
+- Cómo debería presentarse: ${hm.como_deberia_presentarse || ''}
+
+LOGROS DOCUMENTADOS:
+${p.logros.map(l => `- ${l}`).join('\n')}${logrosExtra}
+
+CONTEXTO CRÍTICO:
+- Titulo en Flexicar es "Responsable diseño UX/UI" pero en realidad ejerce como Lead UX/UI + Product Owner — hay que corregirlo
+- 6.5 años en Devoteam/Toyota — experiencia consolidada de nivel senior
+- SEO, Analytics, WPO: evidencia de amplitud de producto, NO especialidad → no debe dominar el perfil
+- Hackathon CardioXplore ganador a nivel europeo — diferenciador potente, hay que destacarlo
+- Objetivo: Lead UX/UI, PO Senior, o salto a PM/Head of Product
+
+Genera el perfil optimizado en JSON:
+{"titular":"listo para pegar en LinkedIn, max 220 chars, que refleje Lead UX/UI + PO y nivel senior","about":"texto completo del resumen, 350-450 palabras, primera persona, español, párrafos cortos, que comunique liderazgo e impacto real de negocio","experiencia_flexicar":{"titulo":"título correcto para LinkedIn","bullets":["logro con métrica y contexto 1","bullet 2","bullet 3","bullet 4","bullet 5"]},"experiencia_devoteam":{"titulo":"título correcto","bullets":["bullet 1 con impacto","bullet 2","bullet 3"]},"skills_top5":["las 5 skills más estratégicas para Lead UX/UI+PO+PM en LinkedIn"],"skills_adicionales":["10-12 skills relevantes adicionales"],"logros_clave":["logro con número concreto 1","logro 2","logro 3","logro 4"],"razonamiento":"por qué estos cambios van a generar más llamadas de recruiters (3-4 frases)"}
+Solo JSON válido, sin texto antes ni después.`;
+}
+
+// ─── Helpers de API ───────────────────────────────────────────────────────────
+async function callGemini(prompt, maxTokens = 1000) {
+  const r = await fetch('/api/gemini', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, max_tokens: maxTokens })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.detail || 'Error Gemini');
+  return d.text || '';
+}
+
+async function callClaudeFull(prompt, system, maxTokens = 3500) {
+  const r = await fetch('/api/claude', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, stream: true, system, messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!r.ok) throw new Error(`Error Claude: ${r.status}`);
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let full = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    for (const line of dec.decode(value, { stream: true }).split('\n')) {
+      if (!line.startsWith('data: ')) continue;
+      const d = line.slice(6).trim();
+      if (d === '[DONE]') continue;
+      try { full += JSON.parse(d).delta?.text || ''; } catch {}
+    }
+  }
+  return full;
+}
+
+function parseJSON(text) {
+  try { return JSON.parse(text); } catch {}
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a !== -1 && b !== -1) try { return JSON.parse(text.slice(a, b + 1)); } catch {}
+  return null;
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+function App() {
+  const [vista, setVista] = useState('inicio');
+  const [perfil, setPerfil] = useState(PERFIL_SEED);
+  const [optimizado, setOptimizado] = useState(null);
+  const [analisis, setAnalisis] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [fase, setFase] = useState('');
+  const [error, setError] = useState(null);
+  const [logrosNuevos, setLogrosNuevos] = useState('');
+  const [mostrarInput, setMostrarInput] = useState(false);
+  const [copiado, setCopiado] = useState(null);
+  const [guardado, setGuardado] = useState(false);
+  const logsRef = useRef(null);
+
+  useEffect(() => {
+    fetch('/api/perfil').then(r => r.json()).then(d => {
+      if (d.perfil) {
+        if (d.perfil.actual) setPerfil(p => ({ ...p, ...d.perfil.actual }));
+        if (d.perfil.optimizado) { setOptimizado(d.perfil.optimizado); setGuardado(true); }
+        if (d.perfil.analisis) setAnalisis(d.perfil.analisis);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (logsRef.current) logsRef.current.scrollTop = logsRef.current.scrollHeight;
+  }, [logs]);
+
+  const log = (msg, tipo = 'info') => setLogs(p => [...p, { msg, tipo }]);
+
+  const copiar = (texto, id) => {
+    navigator.clipboard.writeText(texto || '').then(() => {
+      setCopiado(id);
+      setTimeout(() => setCopiado(null), 2000);
+    });
+  };
+
+  const guardar = async (opt, anal) => {
+    try {
+      await fetch('/api/perfil', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actual: perfil, optimizado: opt, analisis: anal, fecha: new Date().toISOString() })
+      });
+      setGuardado(true);
+    } catch {}
+  };
+
+  const analizar = async () => {
+    setVista('analizando');
+    setLogs([]);
+    setError(null);
+
+    const p = { ...perfil };
+    if (logrosNuevos.trim()) {
+      const nuevos = logrosNuevos.trim().split('\n').filter(l => l.trim());
+      p.logros_adicionales = [...(perfil.logros_adicionales || []), ...nuevos];
+      setPerfil(p);
+    }
+
+    try {
+      // Agente 1 — Recruiter
+      setFase('recruiter');
+      log('🔍 Recruiter analizando tu perfil...', 'agente');
+      const rawRec = await callGemini(promptRecruiter(p));
+      const rec = parseJSON(rawRec);
+      if (!rec) throw new Error('No se pudo parsear el análisis del recruiter');
+      log(`› Primera impresión: "${rec.primera_impresion}"`, 'ok');
+      if (rec.cambio_mas_urgente) log(`⚠ Cambio urgente: ${rec.cambio_mas_urgente}`, 'warn');
+
+      // Agente 2 — Hiring Manager
+      setFase('hm');
+      log('👔 Hiring Manager analizando...', 'agente');
+      const rawHM = await callGemini(promptHiringManager(p));
+      const hm = parseJSON(rawHM);
+      if (!hm) throw new Error('No se pudo parsear el análisis del hiring manager');
+      log(`› Diferenciador: "${hm.diferenciador_real}"`, 'ok');
+      if (hm.duda_principal) log(`⚠ Duda: ${hm.duda_principal}`, 'warn');
+
+      const anal = { recruiter: rec, hiring_manager: hm };
+      setAnalisis(anal);
+
+      // Agente 3 — Editor (Claude Sonnet, streaming)
+      setFase('editor');
+      log('✍️ Optimizando perfil con Claude Sonnet...', 'agente');
+      const rawOpt = await callClaudeFull(
+        promptEditor(p, rec, hm),
+        'Eres experto en LinkedIn optimization para el mercado español de producto digital. Responde únicamente con JSON válido.'
+      );
+      const opt = parseJSON(rawOpt);
+      if (!opt) throw new Error('No se pudo procesar el perfil optimizado. Inténtalo de nuevo.');
+
+      setOptimizado(opt);
+      await guardar(opt, anal);
+      log('✓ Perfil optimizado y guardado', 'ok');
+      setFase('');
+      setVista('resultado');
+    } catch (e) {
+      setError(e.message);
+      setFase('');
+      log(`✗ ${e.message}`, 'error');
+    }
+  };
+
+  // ── INICIO ──────────────────────────────────────────────────────────────────
+  if (vista === 'inicio') return (
+    <div style={S.page}>
+      <div style={S.wrap}>
+        <div style={{ padding: '32px 0 0' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+            <span style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em' }}>PERFIL LINKEDIN</span>
+            {guardado && <span style={{ ...S.tag, fontSize:9 }}>OPTIMIZADO</span>}
+          </div>
+          <div style={{ fontSize:11, color:C.muted, marginBottom:28 }}>
+            Analiza y optimiza tu perfil para entrevistas como Lead UX/UI · PO · Product Manager
+          </div>
+        </div>
+
+        {/* Perfil actual */}
+        <div style={S.card}>
+          <span style={S.label}>TITULAR ACTUAL</span>
+          <div style={{ ...S.small, color:'#94a3b8', marginBottom:20, paddingLeft:10, borderLeft:`2px solid ${C.border}` }}>
+            {perfil.titular}
+          </div>
+
+          <span style={S.label}>EXTRACTO / ABOUT</span>
+          <div style={{ ...S.small, marginBottom:20, whiteSpace:'pre-line' }}>
+            {perfil.about.slice(0, 280)}<span style={{ color:C.muted }}>…</span>
+          </div>
+
+          <span style={S.label}>EXPERIENCIA</span>
+          {perfil.experiencias.map((e, i) => (
+            <div key={i} style={{ marginBottom:10 }}>
+              <div style={{ fontSize:12, fontWeight:700 }}>{e.puesto}</div>
+              <div style={{ fontSize:11, color:C.accent }}>{e.empresa} · {e.periodo}</div>
+            </div>
+          ))}
+
+          <span style={{ ...S.label, marginTop:16 }}>SKILLS VISIBLES EN LINKEDIN</span>
+          <div style={{ marginBottom:16 }}>
+            {perfil.skills.map(s => <span key={s} style={S.tagGray}>{s}</span>)}
+            <span style={{ fontSize:11, color:C.error, marginLeft:8 }}>← solo 3 skills, insuficiente</span>
+          </div>
+
+          <span style={S.label}>LOGROS DOCUMENTADOS</span>
+          {perfil.logros.map((l, i) => (
+            <div key={i} style={{ ...S.small, paddingLeft:10, borderLeft:`2px solid ${C.border}`, marginBottom:6 }}>{l}</div>
+          ))}
+
+          {perfil.logros_adicionales?.length > 0 && <>
+            <span style={{ ...S.label, color:C.warn, marginTop:14 }}>AÑADIDOS</span>
+            {perfil.logros_adicionales.map((l, i) => (
+              <div key={i} style={{ ...S.small, paddingLeft:10, borderLeft:`2px solid ${C.warn}`, marginBottom:6 }}>{l}</div>
+            ))}
+          </>}
+        </div>
+
+        {/* Input logros */}
+        <div style={{ marginBottom:12 }}>
+          <button onClick={() => setMostrarInput(!mostrarInput)} style={S.btnGhost}>
+            {mostrarInput ? '▲ Cerrar' : '+ Añadir proyectos o logros nuevos'}
+          </button>
+        </div>
+        {mostrarInput && (
+          <div style={{ ...S.card, borderColor:C.warn, marginBottom:20 }}>
+            <span style={{ ...S.label, color:C.warn }}>NUEVOS PROYECTOS / LOGROS</span>
+            <div style={{ ...S.small, marginBottom:10 }}>Uno por línea. Ej: "Diseñé X consiguiendo Y resultado"</div>
+            <textarea
+              value={logrosNuevos}
+              onChange={e => setLogrosNuevos(e.target.value)}
+              placeholder={`Lideré el rediseño completo del checkout...\nImplementé sistema de A/B testing que mejoró conversión...`}
+              style={{ width:'100%', background:'#05080c', border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:"'Space Mono',monospace", fontSize:12, padding:12, resize:'vertical', minHeight:90, outline:'none' }}
+            />
+          </div>
+        )}
+
+        <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+          <button onClick={analizar} style={S.btnPrimary}>
+            Analizar y optimizar →
+          </button>
+          {optimizado && (
+            <button onClick={() => setVista('resultado')} style={S.btnSec}>
+              Ver última optimización
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── ANALIZANDO ──────────────────────────────────────────────────────────────
+  if (vista === 'analizando') {
+    const fases = [
+      { id:'recruiter', label:'🔍 Recruiter' },
+      { id:'hm',        label:'👔 Hiring Mgr' },
+      { id:'editor',    label:'✍️ Editor' },
+    ];
+    const idx = fases.findIndex(f => f.id === fase);
+    return (
+      <div style={S.page}>
+        <div style={S.wrap}>
+          <div style={{ padding:'32px 0 20px' }}>
+            <div style={{ fontSize:18, fontWeight:700, marginBottom:4 }}>ANALIZANDO PERFIL</div>
+            <div style={{ fontSize:11, color:C.muted }}>3 agentes revisando tu perfil…</div>
+          </div>
+
+          <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+            {fases.map((f, i) => (
+              <div key={f.id} style={{
+                flex:1, textAlign:'center', padding:'8px 6px', borderRadius:8, fontSize:11,
+                background: i < idx || (fase === '' && i < 3) ? C.accentDim : (f.id === fase ? C.accentDim : C.surface),
+                border: `1px solid ${i <= idx ? C.accent : C.border}`,
+                color: i <= idx ? C.accent : C.muted,
+              }}>{f.label}</div>
+            ))}
+          </div>
+
+          <div ref={logsRef} style={{ background:'#05080c', border:`1px solid ${C.border}`, borderRadius:12, padding:16, height:320, overflowY:'auto', fontFamily:'monospace', fontSize:12 }}>
+            {logs.map((l, i) => (
+              <div key={i} style={{ padding:'3px 0', color: l.tipo==='ok'?C.ok:l.tipo==='error'?C.error:l.tipo==='warn'?C.warn:l.tipo==='agente'?C.accent:C.muted }}>
+                <span style={{ color:C.border, marginRight:8 }}>›</span>{l.msg}
+              </div>
+            ))}
+            {fase && !error && (
+              <div style={{ color:C.accent, animation:'blink 1.2s infinite' }}>
+                <span style={{ color:C.border, marginRight:8 }}>›</span>procesando…
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div style={{ background:'#1a0808', border:`1px solid ${C.error}`, borderRadius:8, padding:16, marginTop:16, color:C.error, fontSize:12 }}>
+              ✗ {error}
+              <div style={{ marginTop:10 }}>
+                <button onClick={() => setVista('inicio')} style={S.btnGhost}>← Volver</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── RESULTADO ───────────────────────────────────────────────────────────────
+  if (vista === 'resultado' && optimizado) {
+    const CopyBtn = ({ id, texto }) => (
+      <button
+        onClick={() => copiar(texto, id)}
+        style={{ ...S.btnGhost, padding:'4px 12px', fontSize:10, borderColor: copiado===id?C.ok:C.border, color: copiado===id?C.ok:C.muted }}
+      >
+        {copiado===id ? '✓ Copiado' : '⎘ Copiar'}
+      </button>
+    );
+
+    const SectionCompare = ({ id, label, actual, opt }) => (
+      <div style={{ ...S.card, marginBottom:20 }}>
+        <span style={S.label}>{label}</span>
+        <div style={{ marginBottom:14, padding:'10px 14px', background:'#05080c', borderRadius:8 }}>
+          <span style={S.labelMuted}>ACTUAL</span>
+          <div style={{ ...S.small, color:'#64748b', whiteSpace:'pre-line' }}>{actual}</div>
+        </div>
+        <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+            <span style={S.label}>OPTIMIZADO</span>
+            <CopyBtn id={id} texto={opt} />
+          </div>
+          <div style={{ ...S.text, whiteSpace:'pre-line', fontSize:13 }}>{opt}</div>
+        </div>
+      </div>
+    );
+
+    return (
+      <div style={S.page}>
+        <div style={S.wrap}>
+          <div style={{ padding:'32px 0 0', marginBottom:20 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+              <span style={{ fontSize:20, fontWeight:700 }}>PERFIL OPTIMIZADO</span>
+              <span style={{ ...S.tag, fontSize:9 }}>GUARDADO</span>
+            </div>
+            {analisis?.recruiter?.primera_impresion && (
+              <div style={{ fontSize:12, color:'#94a3b8', padding:'10px 14px', background:C.accentDim, borderRadius:8, borderLeft:`3px solid ${C.accent}`, marginTop:10 }}>
+                💡 <strong style={{ color:C.accent }}>Recruiter:</strong> {analisis.recruiter.primera_impresion}
+              </div>
+            )}
+          </div>
+
+          <SectionCompare
+            id="titular"
+            label="TITULAR"
+            actual={perfil.titular}
+            opt={optimizado.titular}
+          />
+
+          <SectionCompare
+            id="about"
+            label="ACERCA DE / ABOUT"
+            actual={perfil.about.slice(0, 220) + '…'}
+            opt={optimizado.about}
+          />
+
+          {/* Experiencia Flexicar */}
+          <div style={{ ...S.card, marginBottom:20 }}>
+            <span style={S.label}>EXPERIENCIA — FLEXICAR</span>
+            <div style={{ marginBottom:14, padding:'10px 14px', background:'#05080c', borderRadius:8 }}>
+              <span style={S.labelMuted}>ACTUAL</span>
+              <div style={{ fontSize:12, fontWeight:700, color:'#64748b' }}>{perfil.experiencias[0].puesto}</div>
+              <div style={{ ...S.small, color:'#4b5563', marginTop:4 }}>{perfil.experiencias[0].descripcion}</div>
+            </div>
+            <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                <span style={S.label}>OPTIMIZADO</span>
+                <CopyBtn id="flexicar" texto={`${optimizado.experiencia_flexicar?.titulo}\n\n• ${optimizado.experiencia_flexicar?.bullets?.join('\n• ')}`} />
+              </div>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:10, color:C.text }}>{optimizado.experiencia_flexicar?.titulo}</div>
+              {optimizado.experiencia_flexicar?.bullets?.map((b, i) => (
+                <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {b}</div>
+              ))}
+            </div>
+          </div>
+
+          {/* Experiencia Devoteam */}
+          <div style={{ ...S.card, marginBottom:20 }}>
+            <span style={S.label}>EXPERIENCIA — DEVOTEAM / TOYOTA</span>
+            <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                <span style={S.label}>OPTIMIZADO</span>
+                <CopyBtn id="devoteam" texto={`${optimizado.experiencia_devoteam?.titulo}\n\n• ${optimizado.experiencia_devoteam?.bullets?.join('\n• ')}`} />
+              </div>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:10, color:C.text }}>{optimizado.experiencia_devoteam?.titulo}</div>
+              {optimizado.experiencia_devoteam?.bullets?.map((b, i) => (
+                <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {b}</div>
+              ))}
+            </div>
+          </div>
+
+          {/* Skills */}
+          <div style={{ ...S.card, marginBottom:20 }}>
+            <span style={S.label}>SKILLS</span>
+            <div style={{ marginBottom:14, padding:'10px 14px', background:'#05080c', borderRadius:8 }}>
+              <span style={S.labelMuted}>ACTUALES (solo 3)</span>
+              <div>{perfil.skills.map(s => <span key={s} style={S.tagGray}>{s}</span>)}</div>
+            </div>
+            <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
+              <span style={S.label}>TOP 5 A DESTACAR</span>
+              <div style={{ marginBottom:14 }}>{optimizado.skills_top5?.map(s => <span key={s} style={S.tag}>{s}</span>)}</div>
+              <span style={S.labelMuted}>ADICIONALES A AÑADIR</span>
+              <div style={{ marginBottom:12 }}>{optimizado.skills_adicionales?.map(s => <span key={s} style={S.tagGray}>{s}</span>)}</div>
+              <div style={{ display:'flex', gap:8 }}>
+                <CopyBtn id="skills5" texto={optimizado.skills_top5?.join(', ')} />
+                <CopyBtn id="skillsAll" texto={[...(optimizado.skills_top5||[]), ...(optimizado.skills_adicionales||[])].join(', ')} />
+              </div>
+            </div>
+          </div>
+
+          {/* Logros clave */}
+          {optimizado.logros_clave?.length > 0 && (
+            <div style={{ ...S.card, marginBottom:20 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                <span style={S.label}>LOGROS CLAVE (para About + Experiencia)</span>
+                <CopyBtn id="logros" texto={optimizado.logros_clave?.join('\n')} />
+              </div>
+              {optimizado.logros_clave?.map((l, i) => (
+                <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {l}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Razonamiento */}
+          {optimizado.razonamiento && (
+            <div style={{ ...S.card, marginBottom:24, borderColor:'rgba(45,212,191,0.2)' }}>
+              <span style={S.label}>POR QUÉ ESTOS CAMBIOS</span>
+              <div style={{ ...S.text, color:'#94a3b8', fontSize:12 }}>{optimizado.razonamiento}</div>
+            </div>
+          )}
+
+          <div style={{ display:'flex', gap:12, flexWrap:'wrap', paddingBottom:40 }}>
+            <button onClick={() => setVista('inicio')} style={S.btnGhost}>← Perfil actual</button>
+            <button onClick={() => { setOptimizado(null); setAnalisis(null); setLogrosNuevos(''); setVista('inicio'); }} style={S.btnGhost}>↺ Nueva análisis</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={S.page}>
+      <div style={S.wrap}>
+        <div style={{ padding:'40px 0' }}>
+          <button onClick={() => setVista('inicio')} style={S.btnSec}>← Volver al inicio</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

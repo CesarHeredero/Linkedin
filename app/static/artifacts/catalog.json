@@ -1,22 +1,31 @@
 {
   "artifacts": [
     {
+      "id": "linkedin-agent",
+      "title": "Post",
+      "description": "Genera posts y artículos de LinkedIn con debate entre agentes IA. Investigan, debaten y escriben desde tu voz profesional.",
+      "file": "linkedin-agent.html",
+      "icon": "✍️",
+      "tags": ["contenido", "linkedin"],
+      "date": "2026-05-19"
+    },
+    {
       "id": "job-search-agent",
-      "title": "Job Search Agent",
-      "description": "Busca ofertas de empleo adaptadas a tu perfil usando IA. Genera CV personalizado y te notifica en Telegram con las mejores oportunidades.",
+      "title": "Buscador",
+      "description": "Busca ofertas reales adaptadas a tu perfil. Genera CV personalizado y te notifica en Telegram con las mejores oportunidades.",
       "file": "job-search-agent.html",
       "icon": "💼",
       "tags": ["empleo", "automatización"],
       "date": "2026-05-19"
     },
     {
-      "id": "linkedin-agent",
-      "title": "LinkedIn Content Agent",
-      "description": "Genera posts y artículos de LinkedIn que crean debate. 5 agentes IA investigan, debaten y escriben desde tu voz profesional.",
-      "file": "linkedin-agent.html",
-      "icon": "✍️",
-      "tags": ["contenido", "linkedin"],
-      "date": "2026-05-19"
+      "id": "perfil-agent",
+      "title": "Perfil",
+      "description": "Analiza tu perfil actual con ojos de recruiter y hiring manager. Genera texto optimizado sección por sección para conseguir entrevistas como Lead UX/UI, PO o PM.",
+      "file": "perfil-agent.html",
+      "icon": "👤",
+      "tags": ["perfil", "linkedin"],
+      "date": "2026-06-09"
     }
   ]
 }

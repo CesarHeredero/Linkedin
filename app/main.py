@@ -347,6 +347,27 @@ async def search_jobs(request: Request, q: str = "Product Owner UX", location: s
     return {"ofertas": ofertas, "total": data.get("count", 0)}
 
 
+@app.get("/api/perfil")
+async def get_perfil(request: Request):
+    import json as _json
+    perfil_path = Path("/app/data/perfil.json")
+    if not perfil_path.exists():
+        return JSONResponse({"perfil": None})
+    with open(perfil_path) as f:
+        return {"perfil": _json.load(f)}
+
+
+@app.post("/api/perfil")
+async def save_perfil(request: Request):
+    import json as _json
+    body = await request.json()
+    perfil_path = Path("/app/data/perfil.json")
+    perfil_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(perfil_path, "w") as f:
+        _json.dump(body, f, ensure_ascii=False, indent=2)
+    return {"ok": True}
+
+
 @app.get("/api/image")
 async def proxy_image(request: Request, prompt: str, width: int = 1200, height: int = 628, seed: int = 42):
     from urllib.parse import quote
