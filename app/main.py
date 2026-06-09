@@ -49,7 +49,6 @@ async def busqueda_automatica():
             "app_key": ADZUNA_APP_KEY,
             "results_per_page": 10,
             "what": termino,
-            "where": "España",
             "sort_by": "date",
         }
         try:
@@ -410,23 +409,22 @@ async def proxy_gemini(request: Request):
 
 
 @app.get("/api/jobs")
-async def search_jobs(request: Request, q: str = "Product Owner UX", location: str = "España"):
+async def search_jobs(request: Request, q: str = "Product Owner UX"):
     if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
         return JSONResponse({"detail": "Adzuna no configurado. Regístrate gratis en developer.adzuna.com y añade ADZUNA_APP_ID y ADZUNA_APP_KEY al .env"}, status_code=503)
 
     params = {
         "app_id": ADZUNA_APP_ID,
         "app_key": ADZUNA_APP_KEY,
-        "results_per_page": 8,
+        "results_per_page": 10,
         "what": q,
-        "where": location,
         "sort_by": "date",
     }
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get("https://api.adzuna.com/v1/api/jobs/es/search/1", params=params)
 
     if resp.status_code != 200:
-        return JSONResponse({"detail": f"Error Adzuna {resp.status_code}"}, status_code=502)
+        return JSONResponse({"detail": f"Error Adzuna {resp.status_code}: {resp.text[:200]}"}, status_code=502)
 
     data = resp.json()
     ofertas = []
@@ -439,7 +437,7 @@ async def search_jobs(request: Request, q: str = "Product Owner UX", location: s
             "id": r.get("id", ""),
             "titulo": r.get("title", ""),
             "empresa": r.get("company", {}).get("display_name", "Sin especificar"),
-            "ubicacion": r.get("location", {}).get("display_name", location),
+            "ubicacion": r.get("location", {}).get("display_name", "España"),
             "modalidad": modalidad,
             "salario": salario,
             "descripcion": r.get("description", "")[:600],

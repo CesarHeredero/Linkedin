@@ -132,7 +132,7 @@ function BuscadorApp() {
     setCvResult(null);
     log('🔍 Buscando en Adzuna…');
     try {
-      const r = await fetch(`/api/jobs?q=${encodeURIComponent(query)}&location=España`);
+      const r = await fetch(`/api/jobs?q=${encodeURIComponent(query)}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
       setOfertas(d.ofertas || []);
