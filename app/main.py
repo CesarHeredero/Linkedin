@@ -35,17 +35,32 @@ GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1jty9n0zSmMCcCFlkzVpNdn1feoS_wPE
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON", "")
 
 TERMINOS_BUSQUEDA = ["Lead UX", "Product Owner", "Product Manager", "UX Lead"]
+# Pares (término, categoría Remotive) — Product y Design son las relevantes para César
+TERMINOS_REMOTIVE = [
+    ("product owner", "Product"),
+    ("product manager", "Product"),
+    ("head of product", "Product"),
+    ("ux designer", "Design"),
+    ("ux lead", "Design"),
+    ("lead ux", "Design"),
+]
 scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
 
 
-async def _fetch_remotive(terminos: list) -> list:
-    """Busca ofertas remotas en Remotive — sin API key, gratis."""
+async def _fetch_remotive(pares: list) -> list:
+    """Busca ofertas en Remotive filtrando por categoría Product/Design.
+
+    pares: lista de (termino, categoria) — ej. [("product owner", "Product")]
+    """
     from urllib.parse import quote as urlquote
     vistas: set = set()
     resultado: list = []
-    for termino in terminos:
+    for termino, categoria in pares:
         try:
-            url = f"https://remotive.com/api/remote-jobs?search={urlquote(termino)}&limit=10"
+            url = (
+                f"https://remotive.com/api/remote-jobs"
+                f"?search={urlquote(termino)}&category={urlquote(categoria)}&limit=10"
+            )
             async with httpx.AsyncClient(timeout=20) as client:
                 resp = await client.get(url)
             if resp.status_code != 200:
@@ -117,8 +132,8 @@ async def busqueda_automatica():
             except Exception:
                 continue
 
-    # ── Remotive (global remoto, sin credenciales) ─────────────────────────────
-    remotive = await _fetch_remotive(TERMINOS_BUSQUEDA)
+    # ── Remotive (global remoto, sin credenciales) — solo Product y Design ───────
+    remotive = await _fetch_remotive(TERMINOS_REMOTIVE)
     for o in remotive:
         if o["id"] not in vistas:
             vistas.add(o["id"])
@@ -494,8 +509,8 @@ async def search_jobs(request: Request, q: str = "Product Owner UX"):
         except Exception:
             pass
 
-    # ── Remotive (global remoto, sin credenciales) ─────────────────────────────
-    remotive = await _fetch_remotive([q])
+    # ── Remotive — búsqueda en categorías Product y Design únicamente ──────────
+    remotive = await _fetch_remotive([(q, "Product"), (q, "Design")])
     for o in remotive:
         if o["id"] not in vistas:
             vistas.add(o["id"])
