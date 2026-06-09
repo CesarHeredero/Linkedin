@@ -38,47 +38,91 @@ TERMINOS_BUSQUEDA = ["Lead UX", "Product Owner", "Product Manager", "UX Lead"]
 scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
 
 
-async def busqueda_automatica():
-    if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
-        return
+async def _fetch_remotive(terminos: list) -> list:
+    """Busca ofertas remotas en Remotive — sin API key, gratis."""
+    from urllib.parse import quote as urlquote
     vistas: set = set()
-    todas: list = []
-    for termino in TERMINOS_BUSQUEDA:
-        params = {
-            "app_id": ADZUNA_APP_ID,
-            "app_key": ADZUNA_APP_KEY,
-            "results_per_page": 10,
-            "what": termino,
-            "sort_by": "date",
-        }
+    resultado: list = []
+    for termino in terminos:
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.get("https://api.adzuna.com/v1/api/jobs/es/search/1", params=params)
+            url = f"https://remotive.com/api/remote-jobs?search={urlquote(termino)}&limit=10"
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url)
             if resp.status_code != 200:
                 continue
-            for r in resp.json().get("results", []):
-                rid = r.get("id", "")
-                if rid in vistas:
+            for j in resp.json().get("jobs", []):
+                jid = f"remotive_{j.get('id', '')}"
+                if jid in vistas:
                     continue
-                vistas.add(rid)
-                s_min, s_max = r.get("salary_min"), r.get("salary_max")
-                salario = f"{int(s_min):,} – {int(s_max):,} €/año".replace(",", ".") if s_min and s_max else "No especificado"
-                title_lower = r.get("title", "").lower()
-                modalidad = "Remoto" if "remoto" in title_lower or "remote" in title_lower else "Presencial/Híbrido"
-                todas.append({
-                    "id": rid,
-                    "titulo": r.get("title", ""),
-                    "empresa": r.get("company", {}).get("display_name", "Sin especificar"),
-                    "ubicacion": r.get("location", {}).get("display_name", "España"),
-                    "modalidad": modalidad,
-                    "salario": salario,
-                    "descripcion": r.get("description", "")[:600],
-                    "url": r.get("redirect_url", ""),
-                    "fecha": r.get("created", "")[:10],
+                vistas.add(jid)
+                resultado.append({
+                    "id": jid,
+                    "titulo": j.get("title", ""),
+                    "empresa": j.get("company_name", "Sin especificar"),
+                    "ubicacion": j.get("candidate_required_location", "Remoto"),
+                    "modalidad": "Remoto",
+                    "salario": j.get("salary", "") or "No especificado",
+                    "descripcion": (j.get("description", "") or "")[:600],
+                    "url": j.get("url", ""),
+                    "fecha": (j.get("publication_date", "") or "")[:10],
                     "termino": termino,
+                    "fuente": "Remotive",
                 })
         except Exception:
             continue
+    return resultado
+
+
+async def busqueda_automatica():
+    vistas: set = set()
+    todas: list = []
+
+    # ── Adzuna (España, requiere credenciales) ─────────────────────────────────
+    if ADZUNA_APP_ID and ADZUNA_APP_KEY:
+        for termino in TERMINOS_BUSQUEDA:
+            params = {
+                "app_id": ADZUNA_APP_ID,
+                "app_key": ADZUNA_APP_KEY,
+                "results_per_page": 10,
+                "what": termino,
+                "sort_by": "date",
+            }
+            try:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    resp = await client.get("https://api.adzuna.com/v1/api/jobs/es/search/1", params=params)
+                if resp.status_code != 200:
+                    continue
+                for r in resp.json().get("results", []):
+                    rid = r.get("id", "")
+                    if rid in vistas:
+                        continue
+                    vistas.add(rid)
+                    s_min, s_max = r.get("salary_min"), r.get("salary_max")
+                    salario = f"{int(s_min):,} – {int(s_max):,} €/año".replace(",", ".") if s_min and s_max else "No especificado"
+                    title_lower = r.get("title", "").lower()
+                    modalidad = "Remoto" if "remoto" in title_lower or "remote" in title_lower else "Presencial/Híbrido"
+                    todas.append({
+                        "id": rid,
+                        "titulo": r.get("title", ""),
+                        "empresa": r.get("company", {}).get("display_name", "Sin especificar"),
+                        "ubicacion": r.get("location", {}).get("display_name", "España"),
+                        "modalidad": modalidad,
+                        "salario": salario,
+                        "descripcion": r.get("description", "")[:600],
+                        "url": r.get("redirect_url", ""),
+                        "fecha": r.get("created", "")[:10],
+                        "termino": termino,
+                        "fuente": "Adzuna",
+                    })
+            except Exception:
+                continue
+
+    # ── Remotive (global remoto, sin credenciales) ─────────────────────────────
+    remotive = await _fetch_remotive(TERMINOS_BUSQUEDA)
+    for o in remotive:
+        if o["id"] not in vistas:
+            vistas.add(o["id"])
+            todas.append(o)
 
     if not todas:
         return
@@ -410,41 +454,54 @@ async def proxy_gemini(request: Request):
 
 @app.get("/api/jobs")
 async def search_jobs(request: Request, q: str = "Product Owner UX"):
-    if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
-        return JSONResponse({"detail": "Adzuna no configurado. Regístrate gratis en developer.adzuna.com y añade ADZUNA_APP_ID y ADZUNA_APP_KEY al .env"}, status_code=503)
+    ofertas: list = []
+    vistas: set = set()
 
-    params = {
-        "app_id": ADZUNA_APP_ID,
-        "app_key": ADZUNA_APP_KEY,
-        "results_per_page": 10,
-        "what": q,
-        "sort_by": "date",
-    }
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get("https://api.adzuna.com/v1/api/jobs/es/search/1", params=params)
+    # ── Adzuna (España) ────────────────────────────────────────────────────────
+    if ADZUNA_APP_ID and ADZUNA_APP_KEY:
+        params = {
+            "app_id": ADZUNA_APP_ID,
+            "app_key": ADZUNA_APP_KEY,
+            "results_per_page": 10,
+            "what": q,
+            "sort_by": "date",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get("https://api.adzuna.com/v1/api/jobs/es/search/1", params=params)
+            if resp.status_code == 200:
+                for r in resp.json().get("results", []):
+                    rid = r.get("id", "")
+                    if rid in vistas:
+                        continue
+                    vistas.add(rid)
+                    s_min, s_max = r.get("salary_min"), r.get("salary_max")
+                    salario = f"{int(s_min):,} – {int(s_max):,} €/año".replace(",", ".") if s_min and s_max else "No especificado"
+                    title_lower = r.get("title", "").lower()
+                    modalidad = "Remoto" if "remoto" in title_lower or "remote" in title_lower else "Presencial/Híbrido"
+                    ofertas.append({
+                        "id": rid,
+                        "titulo": r.get("title", ""),
+                        "empresa": r.get("company", {}).get("display_name", "Sin especificar"),
+                        "ubicacion": r.get("location", {}).get("display_name", "España"),
+                        "modalidad": modalidad,
+                        "salario": salario,
+                        "descripcion": r.get("description", "")[:600],
+                        "url": r.get("redirect_url", ""),
+                        "fecha": r.get("created", "")[:10],
+                        "fuente": "Adzuna",
+                    })
+        except Exception:
+            pass
 
-    if resp.status_code != 200:
-        return JSONResponse({"detail": f"Error Adzuna {resp.status_code}: {resp.text[:200]}"}, status_code=502)
+    # ── Remotive (global remoto, sin credenciales) ─────────────────────────────
+    remotive = await _fetch_remotive([q])
+    for o in remotive:
+        if o["id"] not in vistas:
+            vistas.add(o["id"])
+            ofertas.append(o)
 
-    data = resp.json()
-    ofertas = []
-    for r in data.get("results", []):
-        s_min, s_max = r.get("salary_min"), r.get("salary_max")
-        salario = f"{int(s_min):,} – {int(s_max):,} €/año".replace(",", ".") if s_min and s_max else "No especificado"
-        title_lower = r.get("title", "").lower()
-        modalidad = "Remoto" if "remoto" in title_lower or "remote" in title_lower else "Presencial/Híbrido"
-        ofertas.append({
-            "id": r.get("id", ""),
-            "titulo": r.get("title", ""),
-            "empresa": r.get("company", {}).get("display_name", "Sin especificar"),
-            "ubicacion": r.get("location", {}).get("display_name", "España"),
-            "modalidad": modalidad,
-            "salario": salario,
-            "descripcion": r.get("description", "")[:600],
-            "url": r.get("redirect_url", ""),
-            "fecha": r.get("created", "")[:10],
-        })
-    return {"ofertas": ofertas, "total": data.get("count", 0)}
+    return {"ofertas": ofertas, "total": len(ofertas)}
 
 
 @app.get("/api/perfil")

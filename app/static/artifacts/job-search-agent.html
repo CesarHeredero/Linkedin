@@ -358,10 +358,11 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
                 }}>
                   <div style={{ fontWeight:700, color:'#fff', fontSize:13, marginBottom:2 }}>{o.titulo}</div>
                   <div style={{ color:C.accent, fontSize:11, marginBottom:6 }}>{o.empresa} · {o.ubicacion}</div>
-                  <div style={{ display:'flex', gap:12, fontSize:10, color:C.muted, flexWrap:'wrap' }}>
+                  <div style={{ display:'flex', gap:12, fontSize:10, color:C.muted, flexWrap:'wrap', alignItems:'center' }}>
                     <span>💰 {o.salario}</span>
                     <span>🏠 {o.modalidad}</span>
                     {o.fecha && <span>📅 {o.fecha}</span>}
+                    {o.fuente && <span style={{ background: o.fuente==='Remotive'?'rgba(99,102,241,0.12)':'rgba(45,212,191,0.1)', color: o.fuente==='Remotive'?'#818cf8':C.accent, border:`1px solid ${o.fuente==='Remotive'?'rgba(99,102,241,0.3)':'rgba(45,212,191,0.3)'}`, borderRadius:3, padding:'1px 6px' }}>{o.fuente}</span>}
                   </div>
                   {ofertaSeleccionada?.id === o.id && (
                     <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${C.accent}` }}>
