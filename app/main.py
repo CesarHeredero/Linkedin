@@ -47,35 +47,44 @@ TERMINOS_REMOTIVE = [
 scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
 
 
-# Palabras clave de ubicación compatibles con España — se acepta si alguna aparece
+# Ubicaciones compatibles con España
 _UBICACION_OK = {
     "worldwide", "anywhere", "global", "europe", "european",
-    "spain", "españa", "remote", "remoto", "international",
-    "emea", "latam",  # LATAM se incluye porque a veces cubre España
+    "spain", "españa", "remote", "remoto", "international", "emea",
 }
-# Palabras clave que indican restricción a otras regiones — se descarta si SOLO contiene estas
+# Ubicaciones o empresas a excluir siempre
 _UBICACION_EXCLUIR = {
     "usa only", "us only", "united states only", "canada only",
     "us/canada", "north america only", "australia only",
     "uk only", "india only",
+    "israel", "tel aviv", "herzliya", "ramat gan", "petah tikva",
+    "be'er sheva", "haifa", "jerusalem",
 }
 
 
 def _ubicacion_acepta_espana(loc: str) -> bool:
-    """Devuelve True si la ubicación es compatible con un candidato en España."""
     if not loc:
         return True
     loc_lower = loc.lower().strip()
-    # Si es una restricción explícita a otro país, descartar
     for excl in _UBICACION_EXCLUIR:
         if excl in loc_lower:
             return False
-    # Si menciona algo compatible, aceptar
     for ok in _UBICACION_OK:
         if ok in loc_lower:
             return True
-    # Si no dice nada reconocible, descartar para evitar basura
     return False
+
+
+def _prioridad_ubicacion(o: dict) -> int:
+    """Ordena: Adzuna-España primero, luego Europe/Spain en Remotive, luego Global."""
+    if o.get("fuente") == "Adzuna":
+        return 0
+    loc = (o.get("ubicacion", "") or "").lower()
+    if "spain" in loc or "españa" in loc:
+        return 1
+    if "europe" in loc or "emea" in loc:
+        return 2
+    return 3
 
 
 async def _fetch_remotive(pares: list) -> list:
@@ -172,6 +181,8 @@ async def busqueda_automatica():
 
     if not todas:
         return
+
+    todas.sort(key=_prioridad_ubicacion)
 
     data_path = Path("/app/data/ofertas.json")
     data_path.parent.mkdir(parents=True, exist_ok=True)
@@ -552,6 +563,7 @@ async def search_jobs(request: Request, q: str = "Product Owner UX"):
             vistas.add(o["id"])
             ofertas.append(o)
 
+    ofertas.sort(key=_prioridad_ubicacion)
     return {"ofertas": ofertas, "total": len(ofertas)}
 
 
