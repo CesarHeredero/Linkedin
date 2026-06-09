@@ -3,332 +3,331 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Job Search Agent</title>
+  <title>Buscador de Empleo</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #080b0f; color: #e2e8f0; font-family: 'Space Mono', monospace; }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #080b0f; }
-    ::-webkit-scrollbar-thumb { background: #1c2230; border-radius: 2px; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-    @keyframes spin { to{transform:rotate(360deg)} }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:#080b0f;color:#e2e8f0;font-family:'Space Mono',monospace}
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:#080b0f}
+    ::-webkit-scrollbar-thumb{background:#1c2230;border-radius:2px}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useRef } = React;
+const { useState, useRef, useEffect } = React;
 
-// ── Config (sin credenciales — todo va por el servidor) ──
-const API_CLAUDE = '/api/claude';
-const API_TELEGRAM = '/api/telegram';
+const C = {
+  bg:'#080b0f', surface:'#0e1117', border:'#1c2230', accent:'#2dd4bf',
+  accentDim:'#0d3530', text:'#e2e8f0', muted:'#64748b', dim:'#334155',
+  ok:'#22c55e', error:'#ef4444', warn:'#f59e0b',
+};
 
-// ── Perfil de César ──────────────────────────────────────
-const PROFILE = {
+// ─── Perfil base de César (fallback si no hay perfil optimizado guardado) ──
+const PERFIL_BASE = {
   nombre: 'César Heredero Herranz',
-  titulo: 'Lead UX/UI & Senior Product Owner',
+  titular: 'Lead UX/UI & Product Owner | Ecommerce & Producto Digital',
   email: 'heredero.cesar@gmail.com',
   linkedin: 'linkedin.com/in/cesarheredero',
   ubicacion: 'Algete, Madrid, España',
-  extracto: `Perfil híbrido que combina diseño de producto con análisis funcional y visión de negocio.
-Lead UX/UI con funciones de Product Owner, asegurando que cada funcionalidad responda a una necesidad real y sea técnicamente viable.
-Especialista en automatización con n8n, SEO técnico, analítica server-side (GTM, BigQuery, GA4) y Core Web Vitals.`,
-  skills: ['n8n', 'Figma', 'UX/UI Design', 'Product Owner', 'SEO Técnico', 'GTM Server-Side', 'BigQuery', 'GA4', 'A/B Testing', 'Agile/Scrum', 'Docker', 'APIs', 'Core Web Vitals', 'CMS Headless'],
+  about: `Lead UX/UI y Product Owner con 10+ años de experiencia en producto digital y ecommerce.
+En Grupo Flexicar lidero proyectos end-to-end: desde visión estratégica hasta entrega, coordinando equipos de Dev, Marketing, SEO e Infraestructura.
+Anteriormente 6.5 años en Devoteam/Toyota España. Ganador Hackathon CardioXplore a nivel europeo.
+Busco roles de Lead UX/UI, Senior PO o Product Manager en empresas de producto digital. Preferencia: remoto/híbrido en España.`,
   experiencia: [
-    { empresa: 'Grupo Flexicar', rol: 'Responsable diseño UX/UI', periodo: 'Abril 2023 – Presente', descripcion: 'Lead UX/UI & Product Owner en ecommerce de automoción para España y Portugal. SEO técnico, analítica server-side, CMS headless, marketplace expansion.' },
-    { empresa: 'Devoteam (Toyota España)', rol: 'Consultant UX/UI Designer', periodo: 'Dic 2016 – Abril 2023', descripcion: '6 años y 5 meses en proyecto Toyota España. También en GFS/Interflora. Ganador Hackathon CardioXplore europeo.' },
-    { empresa: 'Pamicom Comunicaciones', rol: 'Diseñador y maquetador web', periodo: 'Jul – Nov 2016', descripcion: '' },
+    { empresa: 'Grupo Flexicar', rol: 'Lead UX/UI & Product Owner', periodo: 'Abril 2023 – Presente', descripcion: 'Liderazgo de producto y UX en ecommerce de automoción para España y Portugal. 8+ proyectos simultáneos, definición de épicas, HUs y criterios de aceptación. Coordinación multidisciplinar.' },
+    { empresa: 'Devoteam / Toyota España', rol: 'Consultant UX/UI Designer', periodo: 'Dic 2016 – Abr 2023', descripcion: '6 años 5 meses en Toyota España. Ganador Hackathon CardioXplore europeo (oct 2021).' },
   ],
-  formacion: [
-    'Master en Diseño Gráfico, Web y Animación 3D – CEV (2013–2014)',
-    'Licenciatura en Comunicación Audiovisual – Universidad de Burgos (2009–2014)',
+  skills: ['UX/UI Design', 'Product Owner', 'Figma', 'Agile/Scrum', 'n8n', 'A/B Testing', 'CMS Headless', 'Analítica Web'],
+  logros: [
+    '8+ proyectos liderados como PO en paralelo',
+    '30+ historias de usuario con criterios de aceptación',
+    'Migración de 1.092+ URLs preservando SEO',
+    'Ganador Hackathon CardioXplore a nivel europeo',
   ],
-  busqueda: 'Lead UX/UI, Product Owner, Senior PO o UX Lead en ecommerce / producto digital en España. Preferencia: remoto o híbrido.',
+  busqueda: 'Lead UX/UI, Senior Product Owner, Product Manager en producto digital / ecommerce. Remoto o híbrido, España.',
 };
 
-// ── Colores ─────────────────────────────────────────────
-const C = {
-  bg: '#080b0f', surface: '#0e1117', surfaceHover: '#141820',
-  border: '#1c2230', borderActive: '#2dd4bf', accent: '#2dd4bf',
-  accentDim: '#0d3530', text: '#e2e8f0', textMuted: '#64748b',
-  textDim: '#334155', green: '#22c55e', red: '#ef4444',
-  yellow: '#f59e0b', blue: '#3b82f6',
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+const S = {
+  card:{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:'20px 22px' },
+  label:{ fontSize:10, letterSpacing:3, color:C.accent, marginBottom:8, display:'block' },
+  labelMuted:{ fontSize:10, letterSpacing:3, color:C.muted, marginBottom:6, display:'block' },
+  text:{ fontSize:13, color:C.text, lineHeight:1.8 },
+  small:{ fontSize:12, color:C.muted, lineHeight:1.7 },
+  btnPrimary:{ background:C.accent, color:'#000', border:'none', borderRadius:8, padding:'10px 22px', fontFamily:"'Space Mono',monospace", fontSize:12, fontWeight:700, cursor:'pointer' },
+  btnSec:{ background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, borderRadius:8, padding:'9px 18px', fontFamily:"'Space Mono',monospace", fontSize:12, cursor:'pointer' },
+  btnGhost:{ background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 16px', fontFamily:"'Space Mono',monospace", fontSize:11, cursor:'pointer' },
+  input:{ width:'100%', background:'#05080c', border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:"'Space Mono',monospace", fontSize:12, padding:'9px 14px', outline:'none' },
+  tag:{ display:'inline-block', background:C.accentDim, color:C.accent, borderRadius:4, padding:'2px 8px', fontSize:10, marginRight:4, marginBottom:3 },
 };
 
-const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: '16px', padding: '1.5rem' };
-const pill = (active) => ({
-  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-  padding: '0.35rem 0.85rem', borderRadius: '999px',
-  border: `1px solid ${active ? C.borderActive : C.border}`,
-  background: active ? C.accentDim : C.surface,
-  color: active ? C.accent : C.textMuted,
-  fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.05em',
-  cursor: 'pointer', transition: 'all 0.2s', userSelect: 'none',
-});
-const btn = (variant = 'primary', disabled = false) => ({
-  padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none',
-  fontWeight: 700, fontSize: '0.8rem', cursor: disabled ? 'not-allowed' : 'pointer',
-  fontFamily: "'Space Mono', monospace", letterSpacing: '0.03em', transition: 'all 0.2s',
-  ...(variant === 'primary' ? {
-    background: disabled ? '#1a2332' : C.accent, color: disabled ? C.textDim : '#000',
-  } : variant === 'ghost' ? {
-    background: 'transparent', color: C.textMuted, border: `1px solid ${C.border}`,
-  } : { background: C.accentDim, color: C.accent, border: `1px solid ${C.borderActive}` }),
-});
-const input = {
-  width: '100%', background: '#05080c', border: `1px solid ${C.border}`,
-  borderRadius: '8px', color: C.text, fontSize: '0.82rem',
-  fontFamily: "'Space Mono', monospace", padding: '0.6rem 1rem', outline: 'none', boxSizing: 'border-box',
-};
-
-// ── Llamada a Claude vía servidor ──────────────────────
-async function callClaude(messages, system = '') {
-  const body = { model: 'claude-sonnet-4-5', max_tokens: 3000, messages };
+// ─── Llamada a Claude ─────────────────────────────────────────────────────────
+async function callClaude(messages, system = '', maxTokens = 3000) {
+  const body = { model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages };
   if (system) body.system = system;
-  const res = await fetch(API_CLAUDE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const r = await fetch('/api/claude', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || 'Error en API Claude');
-  return data.content?.[0]?.text || '';
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.detail || `Error Claude ${r.status}`);
+  return d.content?.[0]?.text || '';
 }
 
-// ── Componente principal ────────────────────────────────
-function JobSearchAgent() {
-  const [phase, setPhase] = useState(2);
-  const [searchQuery, setSearchQuery] = useState('Lead UX Product Owner Madrid');
-  const [offers, setOffers] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [selectedOffer, setSelectedOffer] = useState(null);
-  const [generating, setGenerating] = useState(false);
+function parseJSON(text) {
+  try { return JSON.parse(text); } catch {}
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a !== -1 && b !== -1) try { return JSON.parse(text.slice(a, b + 1)); } catch {}
+  return null;
+}
+
+// ─── App ─────────────────────────────────────────────────────────────────────
+function BuscadorApp() {
+  const [fase, setFase] = useState('buscar');   // buscar | cv | telegram
+  const [query, setQuery] = useState('Lead UX Product Owner');
+  const [ofertas, setOfertas] = useState([]);
+  const [buscando, setBuscando] = useState(false);
+  const [ofertaSeleccionada, setOfertaSeleccionada] = useState(null);
+  const [generando, setGenerando] = useState(false);
   const [cvResult, setCvResult] = useState(null);
-  const [notifying, setNotifying] = useState(false);
-  const [notifyStatus, setNotifyStatus] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [perfilOptimizado, setPerfilOptimizado] = useState(null);
   const logRef = useRef(null);
 
-  const log = (msg, type = 'info') => {
-    setLogs(prev => [...prev, { msg, type, ts: new Date().toLocaleTimeString('es-ES') }]);
-    setTimeout(() => logRef.current?.scrollTo(0, logRef.current.scrollHeight), 50);
-  };
+  // Cargar perfil optimizado del módulo Perfil
+  useEffect(() => {
+    fetch('/api/perfil').then(r => r.json()).then(d => {
+      if (d.perfil?.optimizado) setPerfilOptimizado(d.perfil.optimizado);
+    }).catch(() => {});
+  }, []);
 
-  // ── Buscar ofertas ──────────────────────────────────
-  const buscarOfertas = async () => {
-    setSearching(true);
-    setOffers([]);
-    setSelectedOffer(null);
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [logs]);
+
+  const log = (msg, tipo = 'info') => setLogs(p => [...p, { msg, tipo }]);
+
+  // ── Buscar ofertas ──────────────────────────────────────────────────────────
+  const buscar = async () => {
+    setBuscando(true);
+    setOfertas([]);
+    setOfertaSeleccionada(null);
     setCvResult(null);
-    log('🔍 Buscando ofertas reales en Adzuna...');
-
+    log('🔍 Buscando en Adzuna…');
     try {
-      const params = new URLSearchParams({ q: searchQuery, location: 'España' });
-      const res = await fetch(`/api/jobs?${params}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
-      setOffers(data.ofertas || []);
-      log(`✅ ${data.ofertas?.length || 0} ofertas encontradas (de ${data.total} en total)`, 'success');
+      const r = await fetch(`/api/jobs?q=${encodeURIComponent(query)}&location=España`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
+      setOfertas(d.ofertas || []);
+      log(`✓ ${d.ofertas?.length || 0} ofertas encontradas (de ${d.total} en Adzuna)`, 'ok');
+      if (!d.ofertas?.length) log('Sin resultados. Prueba con otro término de búsqueda.', 'warn');
     } catch (e) {
-      log('❌ Error: ' + e.message, 'error');
+      log(`✗ ${e.message}`, 'error');
     }
-    setSearching(false);
+    setBuscando(false);
   };
 
-  // ── Generar CV ──────────────────────────────────────
+  // ── Generar CV ──────────────────────────────────────────────────────────────
   const generarCV = async () => {
-    if (!selectedOffer) return;
-    setGenerating(true);
+    if (!ofertaSeleccionada) return;
+    setGenerando(true);
     setCvResult(null);
-    log(`📄 Generando CV para: ${selectedOffer.empresa} – ${selectedOffer.titulo}`);
+    log(`📄 Generando CV para ${ofertaSeleccionada.empresa} – ${ofertaSeleccionada.titulo}…`);
 
-    const system = `Eres un experto en RRHH y redacción de CVs.
-Dado el perfil y la oferta, genera un CV personalizado y carta de presentación.
-Responde SOLO con JSON válido, sin backticks. Formato:
+    // Usar perfil optimizado si está disponible, si no el base
+    const p = perfilOptimizado
+      ? {
+          titular: perfilOptimizado.titular,
+          about: perfilOptimizado.about,
+          experiencia: `Grupo Flexicar: ${perfilOptimizado.experiencia_flexicar?.titulo} (Abril 2023 – Presente)\n${perfilOptimizado.experiencia_flexicar?.bullets?.map(b => `• ${b}`).join('\n')}\n\nDevoteam/Toyota: ${perfilOptimizado.experiencia_devoteam?.titulo} (Dic 2016 – Abr 2023)\n${perfilOptimizado.experiencia_devoteam?.bullets?.map(b => `• ${b}`).join('\n')}`,
+          skills: [...(perfilOptimizado.skills_top5 || []), ...(perfilOptimizado.skills_adicionales || [])].join(', '),
+          logros: perfilOptimizado.logros_clave?.join('\n'),
+        }
+      : {
+          titular: PERFIL_BASE.titular,
+          about: PERFIL_BASE.about,
+          experiencia: PERFIL_BASE.experiencia.map(e => `${e.empresa}: ${e.rol} (${e.periodo}) – ${e.descripcion}`).join('\n\n'),
+          skills: PERFIL_BASE.skills.join(', '),
+          logros: PERFIL_BASE.logros.join('\n'),
+        };
+
+    const system = `Eres experto en RRHH y redacción de CVs para perfiles de producto digital en España.
+Dado el perfil y la oferta, genera el CV personalizado.
+OBJETIVO DEL CANDIDATO: Lead UX/UI, Senior Product Owner, o Product Manager. No busca roles de especialista técnico (SEO, Analytics, WPO).
+Responde SOLO con JSON válido, sin backticks ni texto adicional:
 {
-  "cv_resumen": "Resumen ejecutivo 3-4 líneas adaptado a la oferta",
-  "propuesta_valor": "Párrafo propuesta de valor específico para esta empresa",
-  "logros_destacados": ["logro 1", "logro 2", "logro 3"],
-  "carta_presentacion": "Carta completa (4 párrafos)",
-  "keywords_oferta": ["kw1", "kw2", "kw3"]
+  "cv_resumen": "Resumen ejecutivo 3-4 líneas adaptado específicamente a esta oferta",
+  "propuesta_valor": "Párrafo de propuesta de valor para esta empresa concreta (3-4 frases)",
+  "logros_destacados": ["logro con métrica relevante para esta oferta 1", "logro 2", "logro 3"],
+  "carta_presentacion": "Carta completa en 4 párrafos: gancho → experiencia relevante → encaje con la empresa → cierre",
+  "keywords_detectadas": ["keyword de la oferta 1", "keyword 2", "keyword 3", "keyword 4", "keyword 5"],
+  "encaje": número del 1 al 100 indicando encaje con la oferta
 }`;
 
-    const prompt = `PERFIL:
-${PROFILE.nombre} | ${PROFILE.titulo}
-${PROFILE.extracto}
-Experiencia: ${PROFILE.experiencia.map(e => `${e.empresa}: ${e.rol} (${e.periodo})`).join(' | ')}
-Skills: ${PROFILE.skills.join(', ')}
-Formación: ${PROFILE.formacion.join(' | ')}
+    const prompt = `PERFIL DE CÉSAR:
+Titular: ${p.titular}
+About: ${p.about}
+
+Experiencia:
+${p.experiencia}
+
+Skills: ${p.skills}
+Logros: ${p.logros}
+Búsqueda: Lead UX/UI, Senior PO o PM en producto digital / ecommerce. Remoto/híbrido España.
 
 OFERTA:
-Título: ${selectedOffer.titulo}
-Empresa: ${selectedOffer.empresa}
-Descripción: ${selectedOffer.descripcion}
-Requisitos: ${selectedOffer.requisitos?.join(', ')}
-Modalidad: ${selectedOffer.modalidad}`;
+Empresa: ${ofertaSeleccionada.empresa}
+Título: ${ofertaSeleccionada.titulo}
+Ubicación: ${ofertaSeleccionada.ubicacion} · ${ofertaSeleccionada.modalidad}
+Salario: ${ofertaSeleccionada.salario}
+Descripción: ${ofertaSeleccionada.descripcion}`;
 
     try {
-      log('🤖 Adaptando CV a la oferta...', 'info');
+      log('🤖 Claude Sonnet adaptando CV…', 'info');
       const raw = await callClaude([{ role: 'user', content: prompt }], system);
-      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+      const parsed = parseJSON(raw);
+      if (!parsed) throw new Error('Respuesta no válida. Inténtalo de nuevo.');
       setCvResult(parsed);
-      log('✅ CV personalizado generado', 'success');
+      log(`✓ CV generado (encaje estimado: ${parsed.encaje}%)`, 'ok');
     } catch (e) {
-      log('❌ Error: ' + e.message, 'error');
+      log(`✗ ${e.message}`, 'error');
     }
-    setGenerating(false);
+    setGenerando(false);
   };
 
-  // ── Notificar Telegram ──────────────────────────────
+  // ── Notificar Telegram ──────────────────────────────────────────────────────
   const notificar = async () => {
-    if (!selectedOffer || !cvResult) return;
-    setNotifying(true);
-    setNotifyStatus(null);
-    log('📬 Enviando notificación a Telegram...');
+    if (!ofertaSeleccionada || !cvResult) return;
+    setEnviando(true);
+    setEnviado(null);
+    log('📬 Enviando a Telegram…');
 
-    const text = `🤖 <b>Job Search Agent</b>
+    const encaje = cvResult.encaje ? `${cvResult.encaje}%` : 'N/D';
+    const msg = `🤖 <b>Job Search Agent</b>
 
 🎯 <b>Nueva candidatura generada</b>
 
-🏢 <b>${selectedOffer.empresa}</b>
-💼 ${selectedOffer.titulo}
-📍 ${selectedOffer.ubicacion} · ${selectedOffer.modalidad}
-💰 ${selectedOffer.salario}
-${selectedOffer.url ? `🔗 <a href="${selectedOffer.url}">Ver oferta</a>` : ''}
+🏢 <b>${ofertaSeleccionada.empresa}</b>
+💼 ${ofertaSeleccionada.titulo}
+📍 ${ofertaSeleccionada.ubicacion} · ${ofertaSeleccionada.modalidad}
+💰 ${ofertaSeleccionada.salario}
+📊 Encaje estimado: <b>${encaje}</b>
+${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta</a>` : ''}
 
-🔑 <b>Keywords clave:</b> ${cvResult.keywords_oferta?.join(', ')}
+🔑 <b>Keywords:</b> ${cvResult.keywords_detectadas?.join(', ') || 'N/D'}
 
-✅ CV personalizado generado y listo
-✉️ Borrador de carta de presentación preparado
-
-<i>Perfil: ${PROFILE.linkedin}</i>`;
+✅ CV personalizado generado
+✉️ Carta de presentación lista`;
 
     try {
-      const res = await fetch(API_TELEGRAM, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+      const r = await fetch('/api/telegram', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg }),
       });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        setNotifyStatus('ok');
-        log('✅ Notificación enviada a Telegram', 'success');
+      const d = await r.json();
+      if (r.ok && d.ok) {
+        setEnviado('ok');
+        log('✓ Notificación enviada a Telegram', 'ok');
       } else {
-        setNotifyStatus('error');
-        log('❌ Error al enviar: ' + (data.detail || 'desconocido'), 'error');
+        setEnviado('error');
+        log(`✗ Error Telegram: ${d.detail || 'desconocido'}`, 'error');
       }
     } catch (e) {
-      setNotifyStatus('error');
-      log('❌ Error de red: ' + e.message, 'error');
+      setEnviado('error');
+      log(`✗ ${e.message}`, 'error');
     }
-    setNotifying(false);
+    setEnviando(false);
   };
 
+  const fases = [
+    { id:'buscar', label:'🔍 Buscar', done: ofertas.length > 0 },
+    { id:'cv',     label:'📄 CV',     done: !!cvResult },
+    { id:'telegram', label:'📬 Telegram', done: enviado === 'ok' },
+  ];
+
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Space Mono', monospace", color: C.text, padding: '1.5rem', maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ minHeight:'100vh', background:C.bg, fontFamily:"'Space Mono',monospace", color:C.text, padding:'20px', maxWidth:860, margin:'0 auto' }}>
 
       {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.accent, boxShadow: `0 0 8px ${C.accent}`, animation: 'pulse 2s infinite' }} />
-          <span style={{ color: C.accent, fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Sistema operativo</span>
+      <div style={{ marginBottom:24 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+          <div style={{ width:7, height:7, borderRadius:'50%', background:C.accent, boxShadow:`0 0 8px ${C.accent}`, animation:'pulse 2s infinite' }} />
+          <span style={{ color:C.accent, fontSize:10, letterSpacing:'0.18em' }}>BUSCADOR DE EMPLEO</span>
         </div>
-        <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}>Job Search Agent</h1>
-        <p style={{ margin: '0.3rem 0 0', color: C.textMuted, fontSize: '0.75rem' }}>{PROFILE.nombre} · {PROFILE.titulo}</p>
+        <h1 style={{ fontSize:20, fontWeight:700, color:'#fff', letterSpacing:'-0.02em', marginBottom:2 }}>Job Search Agent</h1>
+        <p style={{ fontSize:11, color:C.muted }}>{PERFIL_BASE.nombre} · {perfilOptimizado ? 'usando perfil optimizado ✓' : 'perfil base'}</p>
       </div>
 
-      {/* Perfil */}
-      <div style={{ ...card, marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em', marginBottom: '0.6rem', textTransform: 'uppercase' }}>Perfil cargado</div>
-          <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{PROFILE.nombre}</div>
-          <div style={{ color: C.accent, fontSize: '0.72rem', marginBottom: '0.6rem' }}>{PROFILE.experiencia[0].empresa} · {PROFILE.experiencia[0].rol}</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-            {PROFILE.skills.slice(0, 8).map(s => (
-              <span key={s} style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', background: C.accentDim, color: C.accent, fontSize: '0.65rem', fontWeight: 700 }}>{s}</span>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.72rem', color: C.textMuted }}>
-          <span>📍 {PROFILE.ubicacion}</span>
-          <span>✉️ {PROFILE.email}</span>
-          <span>🔗 {PROFILE.linkedin}</span>
-          <span style={{ color: C.accent, fontSize: '0.68rem' }}>🎯 {PROFILE.busqueda.substring(0, 60)}...</span>
-        </div>
-      </div>
-
-      {/* Nav pipeline */}
-      <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        {[
-          { id: 2, label: 'Buscar ofertas', icon: '🔍' },
-          { id: 3, label: 'Generar CV', icon: '📄' },
-          { id: 4, label: 'Notificar', icon: '📬' },
-        ].map((p, i, arr) => (
-          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <div onClick={() => setPhase(p.id)} style={pill(phase === p.id)}>
-              {p.icon} Agente {p.id}: {p.label}
-              {p.id === 3 && selectedOffer && <span style={{ color: C.green }}>·✓</span>}
-              {p.id === 4 && cvResult && <span style={{ color: C.green }}>·✓</span>}
+      {/* Pipeline nav */}
+      <div style={{ display:'flex', gap:6, marginBottom:20, flexWrap:'wrap' }}>
+        {fases.map((f, i) => (
+          <div key={f.id} style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <div onClick={() => setFase(f.id)} style={{
+              padding:'7px 16px', borderRadius:999, fontSize:11, cursor:'pointer',
+              border:`1px solid ${f.id === fase ? C.accent : f.done ? C.ok : C.border}`,
+              background: f.id === fase ? C.accentDim : 'transparent',
+              color: f.id === fase ? C.accent : f.done ? C.ok : C.muted,
+            }}>
+              {f.label}{f.done ? ' ✓' : ''}
             </div>
-            {i < arr.length - 1 && <span style={{ color: C.textDim, fontSize: '0.75rem' }}>→</span>}
+            {i < fases.length - 1 && <span style={{ color:C.dim, fontSize:12 }}>→</span>}
           </div>
         ))}
       </div>
 
-      {/* Agente 2: Buscar */}
-      {phase === 2 && (
-        <div style={{ ...card, animation: 'fadeIn 0.3s ease' }}>
-          <div style={{ marginBottom: '1.2rem' }}>
-            <h2 style={{ margin: '0 0 0.3rem', fontSize: '1rem', color: '#fff' }}>🔍 Agente 2 — Buscador de Ofertas</h2>
-            <p style={{ margin: 0, color: C.textMuted, fontSize: '0.75rem' }}>Busca ofertas adaptadas a tu perfil en LinkedIn, InfoJobs, Indeed</p>
-          </div>
+      {/* ── FASE BUSCAR ─────────────────────────────────────────────────────── */}
+      {fase === 'buscar' && (
+        <div style={{ ...S.card, animation:'fadeIn 0.3s ease' }}>
+          <span style={S.label}>BUSCAR OFERTAS</span>
+          <p style={{ ...S.small, marginBottom:14 }}>Ofertas reales de <strong style={{ color:C.text }}>Adzuna</strong> — agrega InfoJobs, LinkedIn, Indeed y otras fuentes en España.</p>
 
-          {/* Info fuente */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.7rem 1rem', background: C.accentDim, border: `1px solid ${C.borderActive}`, borderRadius: '8px', marginBottom: '1rem', fontSize: '0.72rem', color: C.accent, lineHeight: 1.5 }}>
-            <span style={{ flexShrink: 0 }}>🌐</span>
-            <span><b>Ofertas reales</b> obtenidas de Adzuna, agregador de empleos de España. Haz clic en "Ver oferta" para aplicar directamente.</span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <input style={input} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="ej: Lead UX Product Owner Madrid" />
-            <button onClick={buscarOfertas} disabled={searching || !searchQuery} style={{ ...btn('primary', searching || !searchQuery), whiteSpace: 'nowrap' }}>
-              {searching ? 'Buscando...' : 'Buscar →'}
+          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+            <input
+              style={S.input}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && buscar()}
+              placeholder="Lead UX Product Owner, Product Manager…"
+            />
+            <button onClick={buscar} disabled={buscando || !query.trim()} style={{ ...S.btnPrimary, whiteSpace:'nowrap', opacity: buscando ? 0.6 : 1 }}>
+              {buscando ? 'Buscando…' : 'Buscar →'}
             </button>
           </div>
 
-          {offers.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {offers.map(o => (
-                <div key={o.id} onClick={() => setSelectedOffer(o)} style={{
-                  background: selectedOffer?.id === o.id ? C.accentDim : '#05080c',
-                  border: `1px solid ${selectedOffer?.id === o.id ? C.borderActive : C.border}`,
-                  borderRadius: '10px', padding: '1rem', cursor: 'pointer', transition: 'all 0.2s',
+          {ofertas.length > 0 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {ofertas.map(o => (
+                <div key={o.id} onClick={() => setOfertaSeleccionada(o)} style={{
+                  background: ofertaSeleccionada?.id === o.id ? C.accentDim : '#05080c',
+                  border: `1px solid ${ofertaSeleccionada?.id === o.id ? C.accent : C.border}`,
+                  borderRadius:10, padding:14, cursor:'pointer',
                 }}>
-                  <div style={{ marginBottom: '0.4rem' }}>
-                    <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.88rem' }}>{o.titulo}</div>
-                    <div style={{ color: C.accent, fontSize: '0.75rem' }}>{o.empresa} · {o.ubicacion}</div>
+                  <div style={{ fontWeight:700, color:'#fff', fontSize:13, marginBottom:2 }}>{o.titulo}</div>
+                  <div style={{ color:C.accent, fontSize:11, marginBottom:6 }}>{o.empresa} · {o.ubicacion}</div>
+                  <div style={{ display:'flex', gap:12, fontSize:10, color:C.muted, flexWrap:'wrap' }}>
+                    <span>💰 {o.salario}</span>
+                    <span>🏠 {o.modalidad}</span>
+                    {o.fecha && <span>📅 {o.fecha}</span>}
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.65rem', color: C.textMuted }}>💰 {o.salario}</span>
-                    <span style={{ fontSize: '0.65rem', color: C.textMuted }}>🏠 {o.modalidad}</span>
-                    {o.fecha && <span style={{ fontSize: '0.65rem', color: C.textMuted }}>📅 {o.fecha}</span>}
-                  </div>
-                  {selectedOffer?.id === o.id && (
-                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: `1px solid ${C.borderActive}` }}>
-                      <div style={{ fontSize: '0.75rem', color: C.text, marginBottom: '0.75rem', lineHeight: 1.6 }}>{o.descripcion}</div>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <button onClick={e => { e.stopPropagation(); setPhase(3); }} style={btn('accent')}>
+                  {ofertaSeleccionada?.id === o.id && (
+                    <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${C.accent}` }}>
+                      <p style={{ ...S.small, marginBottom:12, lineHeight:1.7 }}>{o.descripcion}</p>
+                      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                        <button onClick={e => { e.stopPropagation(); setFase('cv'); }} style={S.btnPrimary}>
                           Generar CV para esta oferta →
                         </button>
                         {o.url && (
-                          <a href={o.url} target="_blank" rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            style={{ ...btn('ghost'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                          <a href={o.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                            style={{ ...S.btnGhost, textDecoration:'none', display:'inline-flex', alignItems:'center' }}>
                             🔗 Ver oferta real
                           </a>
                         )}
@@ -340,71 +339,86 @@ ${selectedOffer.url ? `🔗 <a href="${selectedOffer.url}">Ver oferta</a>` : ''}
             </div>
           )}
 
-          {offers.length === 0 && !searching && (
-            <div style={{ padding: '2rem', textAlign: 'center', border: `1px dashed ${C.border}`, borderRadius: '10px', color: C.textDim, fontSize: '0.8rem' }}>
-              Pulsa "Buscar" para encontrar ofertas adaptadas a tu perfil
+          {ofertas.length === 0 && !buscando && (
+            <div style={{ padding:32, textAlign:'center', border:`1px dashed ${C.border}`, borderRadius:10, color:C.dim, fontSize:12 }}>
+              Pulsa "Buscar" para encontrar ofertas en España
             </div>
           )}
         </div>
       )}
 
-      {/* Agente 3: CV */}
-      {phase === 3 && (
-        <div style={{ ...card, animation: 'fadeIn 0.3s ease' }}>
-          <div style={{ marginBottom: '1.2rem' }}>
-            <h2 style={{ margin: '0 0 0.3rem', fontSize: '1rem', color: '#fff' }}>📄 Agente 3 — CV Personalizado</h2>
-            <p style={{ margin: 0, color: C.textMuted, fontSize: '0.75rem' }}>Genera CV y carta de presentación adaptados a la oferta</p>
-          </div>
+      {/* ── FASE CV ─────────────────────────────────────────────────────────── */}
+      {fase === 'cv' && (
+        <div style={{ ...S.card, animation:'fadeIn 0.3s ease' }}>
+          <span style={S.label}>CV PERSONALIZADO</span>
 
-          {!selectedOffer ? (
-            <div style={{ padding: '2rem', textAlign: 'center', border: `1px dashed ${C.border}`, borderRadius: '10px', color: C.textDim, fontSize: '0.8rem' }}>
-              Primero selecciona una oferta en el Agente 2
-              <br /><button onClick={() => setPhase(2)} style={{ ...btn('ghost'), marginTop: '0.75rem' }}>← Ir a buscar ofertas</button>
+          {!ofertaSeleccionada ? (
+            <div style={{ padding:24, textAlign:'center', border:`1px dashed ${C.border}`, borderRadius:10, color:C.dim, fontSize:12 }}>
+              Primero selecciona una oferta
+              <br /><button onClick={() => setFase('buscar')} style={{ ...S.btnGhost, marginTop:12 }}>← Buscar ofertas</button>
             </div>
           ) : (
             <>
-              <div style={{ padding: '0.75rem 1rem', background: C.accentDim, border: `1px solid ${C.borderActive}`, borderRadius: '8px', marginBottom: '1rem', fontSize: '0.78rem' }}>
-                <span style={{ color: C.accent, fontWeight: 700 }}>{selectedOffer.empresa}</span>
-                <span style={{ color: C.textMuted }}> · {selectedOffer.titulo} · {selectedOffer.ubicacion}</span>
+              <div style={{ padding:'10px 14px', background:C.accentDim, border:`1px solid ${C.accent}`, borderRadius:8, marginBottom:14, fontSize:12 }}>
+                <span style={{ color:C.accent, fontWeight:700 }}>{ofertaSeleccionada.empresa}</span>
+                <span style={{ color:C.muted }}> · {ofertaSeleccionada.titulo} · {ofertaSeleccionada.ubicacion}</span>
               </div>
 
-              <button onClick={generarCV} disabled={generating} style={btn('primary', generating)}>
-                {generating ? '⏳ Generando...' : '🤖 Generar CV personalizado'}
+              {perfilOptimizado && (
+                <div style={{ fontSize:10, color:C.ok, marginBottom:12, padding:'6px 12px', background:'rgba(34,197,94,0.06)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:6 }}>
+                  ✓ Usando perfil optimizado del módulo Perfil
+                </div>
+              )}
+
+              <button onClick={generarCV} disabled={generando} style={{ ...S.btnPrimary, opacity: generando ? 0.6 : 1 }}>
+                {generando ? '⏳ Generando…' : '🤖 Generar CV personalizado'}
               </button>
 
               {cvResult && (
-                <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', animation: 'fadeIn 0.3s ease' }}>
+                <div style={{ marginTop:20, display:'flex', flexDirection:'column', gap:14, animation:'fadeIn 0.3s ease' }}>
                   {[
-                    { label: 'Resumen ejecutivo', value: cvResult.cv_resumen },
-                    { label: `Propuesta de valor para ${selectedOffer.empresa}`, value: cvResult.propuesta_valor },
-                    { label: 'Carta de presentación', value: cvResult.carta_presentacion },
-                  ].map(({ label, value }) => (
-                    <div key={label}>
-                      <div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{label}</div>
-                      <div style={{ background: '#05080c', border: `1px solid ${C.border}`, borderRadius: '8px', padding: '0.75rem', fontSize: '0.8rem', lineHeight: 1.7, whiteSpace: 'pre-wrap', color: C.text }}>{value}</div>
+                    { label:'Resumen ejecutivo', key:'cv_resumen' },
+                    { label:`Propuesta de valor para ${ofertaSeleccionada.empresa}`, key:'propuesta_valor' },
+                    { label:'Carta de presentación', key:'carta_presentacion' },
+                  ].map(({ label, key }) => cvResult[key] && (
+                    <div key={key}>
+                      <span style={S.labelMuted}>{label.toUpperCase()}</span>
+                      <div style={{ background:'#05080c', border:`1px solid ${C.border}`, borderRadius:8, padding:12, fontSize:12, lineHeight:1.8, whiteSpace:'pre-wrap', color:C.text }}>
+                        {cvResult[key]}
+                      </div>
                     </div>
                   ))}
 
-                  <div>
-                    <div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>Logros destacados</div>
-                    {cvResult.logros_destacados?.map((l, i) => (
-                      <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem', fontSize: '0.8rem' }}>
-                        <span style={{ color: C.accent }}>→</span>
-                        <span style={{ color: C.text }}>{l}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>Keywords detectadas</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                      {cvResult.keywords_oferta?.map(k => (
-                        <span key={k} style={{ padding: '0.2rem 0.6rem', borderRadius: '4px', background: '#0f1a0e', color: C.green, fontSize: '0.7rem' }}>{k}</span>
+                  {cvResult.logros_destacados?.length > 0 && (
+                    <div>
+                      <span style={S.labelMuted}>LOGROS DESTACADOS PARA ESTA OFERTA</span>
+                      {cvResult.logros_destacados.map((l, i) => (
+                        <div key={i} style={{ display:'flex', gap:8, marginBottom:6, fontSize:12 }}>
+                          <span style={{ color:C.accent }}>→</span>
+                          <span>{l}</span>
+                        </div>
                       ))}
                     </div>
+                  )}
+
+                  <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
+                    {cvResult.keywords_detectadas?.length > 0 && (
+                      <div style={{ flex:1 }}>
+                        <span style={S.labelMuted}>KEYWORDS DE LA OFERTA</span>
+                        <div>{cvResult.keywords_detectadas.map(k => <span key={k} style={{ ...S.tag, background:'rgba(34,197,94,0.06)', color:C.ok, border:'1px solid rgba(34,197,94,0.2)' }}>{k}</span>)}</div>
+                      </div>
+                    )}
+                    {cvResult.encaje && (
+                      <div style={{ textAlign:'center', padding:'10px 20px', border:`1px solid ${C.accent}`, borderRadius:10 }}>
+                        <div style={{ fontSize:22, fontWeight:700, color:C.accent }}>{cvResult.encaje}%</div>
+                        <div style={{ fontSize:10, color:C.muted }}>ENCAJE</div>
+                      </div>
+                    )}
                   </div>
 
-                  <button onClick={() => setPhase(4)} style={btn('accent')}>📬 Notificar por Telegram →</button>
+                  <button onClick={() => setFase('telegram')} style={S.btnSec}>
+                    📬 Notificar por Telegram →
+                  </button>
                 </div>
               )}
             </>
@@ -412,45 +426,43 @@ ${selectedOffer.url ? `🔗 <a href="${selectedOffer.url}">Ver oferta</a>` : ''}
         </div>
       )}
 
-      {/* Agente 4: Telegram */}
-      {phase === 4 && (
-        <div style={{ ...card, animation: 'fadeIn 0.3s ease' }}>
-          <div style={{ marginBottom: '1.2rem' }}>
-            <h2 style={{ margin: '0 0 0.3rem', fontSize: '1rem', color: '#fff' }}>📬 Agente 4 — Notificaciones Telegram</h2>
-            <p style={{ margin: 0, color: C.textMuted, fontSize: '0.75rem' }}>Envía resumen de la candidatura a tu bot de Telegram</p>
-          </div>
+      {/* ── FASE TELEGRAM ───────────────────────────────────────────────────── */}
+      {fase === 'telegram' && (
+        <div style={{ ...S.card, animation:'fadeIn 0.3s ease' }}>
+          <span style={S.label}>NOTIFICACIÓN TELEGRAM</span>
 
           {!cvResult ? (
-            <div style={{ padding: '2rem', textAlign: 'center', border: `1px dashed ${C.border}`, borderRadius: '10px', color: C.textDim, fontSize: '0.8rem' }}>
-              Primero genera el CV en el Agente 3
-              <br /><button onClick={() => setPhase(3)} style={{ ...btn('ghost'), marginTop: '0.75rem' }}>← Ir a generar CV</button>
+            <div style={{ padding:24, textAlign:'center', border:`1px dashed ${C.border}`, borderRadius:10, color:C.dim, fontSize:12 }}>
+              Primero genera el CV
+              <br /><button onClick={() => setFase('cv')} style={{ ...S.btnGhost, marginTop:12 }}>← Ir a CV</button>
             </div>
           ) : (
             <>
-              <div style={{ padding: '1rem', background: '#05080c', border: `1px solid ${C.border}`, borderRadius: '10px', marginBottom: '1rem', fontSize: '0.78rem', lineHeight: 1.8 }}>
-                <div style={{ color: C.accent, fontWeight: 700, marginBottom: '0.5rem' }}>📤 Mensaje que se enviará:</div>
-                <div style={{ color: C.textMuted }}>
-                  🏢 <b style={{ color: C.text }}>{selectedOffer?.empresa}</b> · {selectedOffer?.titulo}<br />
-                  📍 {selectedOffer?.ubicacion} · {selectedOffer?.modalidad}<br />
-                  💰 {selectedOffer?.salario} · Encaje: <b style={{ color: C.green }}>{selectedOffer?.encaje}%</b><br />
-                  🔑 Keywords: {cvResult.keywords_oferta?.join(', ')}<br />
+              <div style={{ background:'#05080c', border:`1px solid ${C.border}`, borderRadius:10, padding:16, marginBottom:16, fontSize:12, lineHeight:1.9 }}>
+                <div style={{ color:C.accent, fontWeight:700, marginBottom:8 }}>Mensaje que se enviará:</div>
+                <div style={{ color:C.muted }}>
+                  🏢 <strong style={{ color:C.text }}>{ofertaSeleccionada?.empresa}</strong> · {ofertaSeleccionada?.titulo}<br />
+                  📍 {ofertaSeleccionada?.ubicacion} · {ofertaSeleccionada?.modalidad}<br />
+                  💰 {ofertaSeleccionada?.salario}<br />
+                  {cvResult.encaje && <>📊 Encaje: <strong style={{ color:C.accent }}>{cvResult.encaje}%</strong><br /></>}
+                  🔑 Keywords: {cvResult.keywords_detectadas?.join(', ')}<br />
                   ✅ CV personalizado generado<br />
                   ✉️ Carta de presentación lista
                 </div>
               </div>
 
-              <button onClick={notificar} disabled={notifying} style={btn('primary', notifying)}>
-                {notifying ? 'Enviando...' : '📤 Enviar a Telegram'}
+              <button onClick={notificar} disabled={enviando} style={{ ...S.btnPrimary, opacity: enviando ? 0.6 : 1 }}>
+                {enviando ? 'Enviando…' : '📤 Enviar a Telegram'}
               </button>
 
-              {notifyStatus === 'ok' && (
-                <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: '#0f1f0e', border: `1px solid ${C.green}`, borderRadius: '8px', color: C.green, fontSize: '0.82rem' }}>
-                  ✅ ¡Notificación enviada! Revisa tu Telegram.
+              {enviado === 'ok' && (
+                <div style={{ marginTop:12, padding:'10px 16px', background:'rgba(34,197,94,0.06)', border:`1px solid ${C.ok}`, borderRadius:8, color:C.ok, fontSize:12 }}>
+                  ✅ Notificación enviada. Revisa tu Telegram.
                 </div>
               )}
-              {notifyStatus === 'error' && (
-                <div style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: '#1f0e0e', border: `1px solid ${C.red}`, borderRadius: '8px', color: C.red, fontSize: '0.82rem' }}>
-                  ❌ Error al enviar. Verifica la configuración del servidor.
+              {enviado === 'error' && (
+                <div style={{ marginTop:12, padding:'10px 16px', background:'rgba(239,68,68,0.06)', border:`1px solid ${C.error}`, borderRadius:8, color:C.error, fontSize:12 }}>
+                  ✗ Error al enviar. Verifica la configuración del servidor.
                 </div>
               )}
             </>
@@ -460,12 +472,12 @@ ${selectedOffer.url ? `🔗 <a href="${selectedOffer.url}">Ver oferta</a>` : ''}
 
       {/* Console */}
       {logs.length > 0 && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <div style={{ fontSize: '0.65rem', color: C.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Console</div>
-          <div ref={logRef} style={{ background: '#03050a', border: `1px solid ${C.border}`, borderRadius: '8px', padding: '0.75rem 1rem', maxHeight: 160, overflowY: 'auto', fontSize: '0.72rem' }}>
+        <div style={{ marginTop:20 }}>
+          <span style={S.labelMuted}>CONSOLE</span>
+          <div ref={logRef} style={{ background:'#03050a', border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 14px', maxHeight:140, overflowY:'auto', fontSize:11 }}>
             {logs.map((l, i) => (
-              <div key={i} style={{ color: l.type === 'error' ? C.red : l.type === 'success' ? C.green : l.type === 'warn' ? C.yellow : C.textMuted, marginBottom: '0.15rem' }}>
-                <span style={{ color: C.textDim }}>[{l.ts}] </span>{l.msg}
+              <div key={i} style={{ color: l.tipo==='ok'?C.ok:l.tipo==='error'?C.error:l.tipo==='warn'?C.warn:C.muted, marginBottom:2 }}>
+                <span style={{ color:C.dim }}>› </span>{l.msg}
               </div>
             ))}
           </div>
@@ -475,7 +487,7 @@ ${selectedOffer.url ? `🔗 <a href="${selectedOffer.url}">Ver oferta</a>` : ''}
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<JobSearchAgent />);
+ReactDOM.createRoot(document.getElementById('root')).render(<BuscadorApp />);
 </script>
 </body>
 </html>
