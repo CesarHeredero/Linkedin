@@ -47,11 +47,39 @@ TERMINOS_REMOTIVE = [
 scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
 
 
-async def _fetch_remotive(pares: list) -> list:
-    """Busca ofertas en Remotive filtrando por categoría Product/Design.
+# Palabras clave de ubicación compatibles con España — se acepta si alguna aparece
+_UBICACION_OK = {
+    "worldwide", "anywhere", "global", "europe", "european",
+    "spain", "españa", "remote", "remoto", "international",
+    "emea", "latam",  # LATAM se incluye porque a veces cubre España
+}
+# Palabras clave que indican restricción a otras regiones — se descarta si SOLO contiene estas
+_UBICACION_EXCLUIR = {
+    "usa only", "us only", "united states only", "canada only",
+    "us/canada", "north america only", "australia only",
+    "uk only", "india only",
+}
 
-    pares: lista de (termino, categoria) — ej. [("product owner", "Product")]
-    """
+
+def _ubicacion_acepta_espana(loc: str) -> bool:
+    """Devuelve True si la ubicación es compatible con un candidato en España."""
+    if not loc:
+        return True
+    loc_lower = loc.lower().strip()
+    # Si es una restricción explícita a otro país, descartar
+    for excl in _UBICACION_EXCLUIR:
+        if excl in loc_lower:
+            return False
+    # Si menciona algo compatible, aceptar
+    for ok in _UBICACION_OK:
+        if ok in loc_lower:
+            return True
+    # Si no dice nada reconocible, descartar para evitar basura
+    return False
+
+
+async def _fetch_remotive(pares: list) -> list:
+    """Busca ofertas en Remotive filtrando por categoría Product/Design y ubicación España-compatible."""
     from urllib.parse import quote as urlquote
     vistas: set = set()
     resultado: list = []
@@ -59,13 +87,16 @@ async def _fetch_remotive(pares: list) -> list:
         try:
             url = (
                 f"https://remotive.com/api/remote-jobs"
-                f"?search={urlquote(termino)}&category={urlquote(categoria)}&limit=10"
+                f"?search={urlquote(termino)}&category={urlquote(categoria)}&limit=20"
             )
             async with httpx.AsyncClient(timeout=20) as client:
                 resp = await client.get(url)
             if resp.status_code != 200:
                 continue
             for j in resp.json().get("jobs", []):
+                loc = j.get("candidate_required_location", "") or ""
+                if not _ubicacion_acepta_espana(loc):
+                    continue
                 jid = f"remotive_{j.get('id', '')}"
                 if jid in vistas:
                     continue
@@ -74,7 +105,7 @@ async def _fetch_remotive(pares: list) -> list:
                     "id": jid,
                     "titulo": j.get("title", ""),
                     "empresa": j.get("company_name", "Sin especificar"),
-                    "ubicacion": j.get("candidate_required_location", "Remoto"),
+                    "ubicacion": loc or "Remoto",
                     "modalidad": "Remoto",
                     "salario": j.get("salary", "") or "No especificado",
                     "descripcion": (j.get("description", "") or "")[:600],
