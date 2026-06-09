@@ -172,10 +172,10 @@ Solo JSON válido, sin texto antes ni después.`;
 }
 
 // ─── Helpers de API ───────────────────────────────────────────────────────────
-async function callGemini(prompt, maxTokens = 1000) {
+async function callGemini(prompt, maxTokens = 1500, asJson = false) {
   const r = await fetch('/api/gemini', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, max_tokens: maxTokens })
+    body: JSON.stringify({ prompt, max_tokens: maxTokens, json: asJson })
   });
   const d = await r.json();
   if (!r.ok) throw new Error(d.detail || 'Error Gemini');
@@ -275,16 +275,16 @@ function App() {
       // Agente 1 — Recruiter
       setFase('recruiter');
       log('🔍 Recruiter analizando tu perfil...', 'agente');
-      const rawRec = await callGemini(promptRecruiter(p));
+      const rawRec = await callGemini(promptRecruiter(p), 1500, true);
       const rec = parseJSON(rawRec);
-      if (!rec) throw new Error('No se pudo parsear el análisis del recruiter');
+      if (!rec) throw new Error(`Respuesta del recruiter no es JSON válido. Inténtalo de nuevo.`);
       log(`› Primera impresión: "${rec.primera_impresion}"`, 'ok');
       if (rec.cambio_mas_urgente) log(`⚠ Cambio urgente: ${rec.cambio_mas_urgente}`, 'warn');
 
       // Agente 2 — Hiring Manager
       setFase('hm');
       log('👔 Hiring Manager analizando...', 'agente');
-      const rawHM = await callGemini(promptHiringManager(p));
+      const rawHM = await callGemini(promptHiringManager(p), 1500, true);
       const hm = parseJSON(rawHM);
       if (!hm) throw new Error('No se pudo parsear el análisis del hiring manager');
       log(`› Diferenciador: "${hm.diferenciador_real}"`, 'ok');

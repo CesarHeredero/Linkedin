@@ -276,12 +276,16 @@ async def proxy_gemini(request: Request):
     body = await request.json()
     prompt = body.get("prompt", "")
     max_tokens = body.get("max_tokens", 2048)
+    force_json = body.get("json", False)
 
     # Intentar Gemini si hay clave configurada
     if GEMINI_API_KEY:
+        gen_config = {"maxOutputTokens": max_tokens, "temperature": 0.7}
+        if force_json:
+            gen_config["responseMimeType"] = "application/json"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.7},
+            "generationConfig": gen_config,
         }
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={GEMINI_API_KEY}"
         async with httpx.AsyncClient(timeout=60) as client:
@@ -294,12 +298,15 @@ async def proxy_gemini(request: Request):
             return JSONResponse({"detail": f"Error Gemini {resp.status_code}: {resp.text[:200]}"}, status_code=resp.status_code)
         # 429/503 → fallback a Claude Haiku
 
-    # Fallback: Claude Haiku (barato, rápido, para agentes de soporte)
+    # Fallback: Claude Haiku
     if not ANTHROPIC_API_KEY:
         return JSONResponse({"detail": "Gemini no disponible y ANTHROPIC_API_KEY no configurado"}, status_code=503)
 
     headers = {"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+    system = "Respond only with valid JSON. No preamble, no markdown, no code blocks. Just the raw JSON object." if force_json else None
     claude_payload = {"model": "claude-haiku-4-5-20251001", "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
+    if system:
+        claude_payload["system"] = system
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post("https://api.anthropic.com/v1/messages", json=claude_payload, headers=headers)
     if resp.status_code == 200:
