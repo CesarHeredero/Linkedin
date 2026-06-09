@@ -181,11 +181,16 @@ async def busqueda_automatica():
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
 
-    lines = [f"<b>💼 Ofertas encontradas ({len(todas)})</b>\n"]
+    hora = datetime.now().strftime("%H:%M")
+    lines = [f"<b>💼 {len(todas)} ofertas nuevas · {hora}</b>\n"]
     for o in todas[:8]:
-        lines.append(f"• <b>{o['titulo']}</b> — {o['empresa']}")
+        url_oferta = o.get("url", "")
+        titulo_link = f'<a href="{url_oferta}">{o["titulo"]}</a>' if url_oferta else o["titulo"]
+        lines.append(f"• {titulo_link} — <i>{o['empresa']}</i>")
         lines.append(f"  📍 {o['ubicacion']} · {o['modalidad']}\n")
-    lines.append("Abre el Buscador para generar tu CV personalizado.")
+    if len(todas) > 8:
+        lines.append(f"  <i>+{len(todas) - 8} más en el Buscador</i>\n")
+    lines.append(f'👉 <a href="https://agentes.cesarheredero.com/artifacts/job-search-agent.html">Abrir Buscador → elegir oferta → generar CV</a>')
     texto = "\n".join(lines)
 
     try:
