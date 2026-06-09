@@ -1,10 +1,16 @@
+import asyncio
+import json as _json
 import os
 import secrets
 import time
 from collections import defaultdict
+from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 import httpx
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +33,95 @@ ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1jty9n0zSmMCcCFlkzVpNdn1feoS_wPEo5FsnJym-eqg")
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON", "")
+
+TERMINOS_BUSQUEDA = ["Lead UX", "Product Owner", "Product Manager", "UX Lead"]
+scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
+
+
+async def busqueda_automatica():
+    if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
+        return
+    vistas: set = set()
+    todas: list = []
+    for termino in TERMINOS_BUSQUEDA:
+        params = {
+            "app_id": ADZUNA_APP_ID,
+            "app_key": ADZUNA_APP_KEY,
+            "results_per_page": 10,
+            "what": termino,
+            "where": "España",
+            "sort_by": "date",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get("https://api.adzuna.com/v1/api/jobs/es/search/1", params=params)
+            if resp.status_code != 200:
+                continue
+            for r in resp.json().get("results", []):
+                rid = r.get("id", "")
+                if rid in vistas:
+                    continue
+                vistas.add(rid)
+                s_min, s_max = r.get("salary_min"), r.get("salary_max")
+                salario = f"{int(s_min):,} – {int(s_max):,} €/año".replace(",", ".") if s_min and s_max else "No especificado"
+                title_lower = r.get("title", "").lower()
+                modalidad = "Remoto" if "remoto" in title_lower or "remote" in title_lower else "Presencial/Híbrido"
+                todas.append({
+                    "id": rid,
+                    "titulo": r.get("title", ""),
+                    "empresa": r.get("company", {}).get("display_name", "Sin especificar"),
+                    "ubicacion": r.get("location", {}).get("display_name", "España"),
+                    "modalidad": modalidad,
+                    "salario": salario,
+                    "descripcion": r.get("description", "")[:600],
+                    "url": r.get("redirect_url", ""),
+                    "fecha": r.get("created", "")[:10],
+                    "termino": termino,
+                })
+        except Exception:
+            continue
+
+    if not todas:
+        return
+
+    data_path = Path("/app/data/ofertas.json")
+    data_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(data_path, "w") as f:
+        _json.dump({"ofertas": todas, "total": len(todas), "fecha_busqueda": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
+
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    lines = [f"<b>💼 Ofertas encontradas ({len(todas)})</b>\n"]
+    for o in todas[:8]:
+        lines.append(f"• <b>{o['titulo']}</b> — {o['empresa']}")
+        lines.append(f"  📍 {o['ubicacion']} · {o['modalidad']}\n")
+    lines.append("Abre el Buscador para generar tu CV personalizado.")
+    texto = "\n".join(lines)
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            await client.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT_ID, "text": texto, "parse_mode": "HTML", "disable_web_page_preview": True},
+            )
+    except Exception:
+        if N8N_WEBHOOK:
+            try:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    await client.post(N8N_WEBHOOK, json={"message": texto})
+            except Exception:
+                pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler.add_job(busqueda_automatica, CronTrigger(hour=9, minute=0))
+    scheduler.add_job(busqueda_automatica, CronTrigger(hour=18, minute=0))
+    scheduler.start()
+    yield
+    scheduler.shutdown(wait=False)
+
 
 LOGIN_HTML = """<!DOCTYPE html>
 <html lang="es">
@@ -110,7 +205,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-app = FastAPI(title="Agentes IA")
+app = FastAPI(title="Agentes IA", lifespan=lifespan)
 
 # Middleware order: CORS → Session → Auth → handlers
 app.add_middleware(AuthMiddleware)
@@ -375,10 +470,28 @@ async def save_perfil(request: Request):
     return {"ok": True}
 
 
+@app.post("/api/jobs/buscar-ahora")
+async def buscar_ahora(request: Request):
+    await busqueda_automatica()
+    data_path = Path("/app/data/ofertas.json")
+    if data_path.exists():
+        with open(data_path) as f:
+            return _json.load(f)
+    return {"ofertas": [], "total": 0, "fecha_busqueda": None}
+
+
+@app.get("/api/jobs/ultima-busqueda")
+async def ultima_busqueda(request: Request):
+    data_path = Path("/app/data/ofertas.json")
+    if not data_path.exists():
+        return {"ofertas": [], "total": 0, "fecha_busqueda": None}
+    with open(data_path) as f:
+        return _json.load(f)
+
+
 @app.get("/api/image")
 async def proxy_image(request: Request, prompt: str, width: int = 1200, height: int = 628, seed: int = 42):
     from urllib.parse import quote
-    import asyncio
 
     # Try Pollinations.ai (3 attempts, 3s apart)
     poll_url = f"https://image.pollinations.ai/prompt/{quote(prompt)}?width={width}&height={height}&model=flux&nologo=true&seed={seed}"

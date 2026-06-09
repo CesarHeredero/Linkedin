@@ -68,17 +68,15 @@ const S = {
   tag:{ display:'inline-block', background:C.accentDim, color:C.accent, borderRadius:4, padding:'2px 8px', fontSize:10, marginRight:4, marginBottom:3 },
 };
 
-// ─── Llamada a Claude ─────────────────────────────────────────────────────────
-async function callClaude(messages, system = '', maxTokens = 3000) {
-  const body = { model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages };
-  if (system) body.system = system;
-  const r = await fetch('/api/claude', {
+// ─── Llamada a Gemini (gratis, con fallback a Claude Haiku) ──────────────────
+async function callGemini(prompt, maxTokens = 2000, asJson = false) {
+  const r = await fetch('/api/gemini', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ prompt, max_tokens: maxTokens, json: asJson }),
   });
   const d = await r.json();
-  if (!r.ok) throw new Error(d.detail || `Error Claude ${r.status}`);
-  return d.content?.[0]?.text || '';
+  if (!r.ok) throw new Error(d.detail || `Error Gemini ${r.status}`);
+  return d.text || '';
 }
 
 function parseJSON(text) {
@@ -94,6 +92,8 @@ function BuscadorApp() {
   const [query, setQuery] = useState('Lead UX Product Owner');
   const [ofertas, setOfertas] = useState([]);
   const [buscando, setBuscando] = useState(false);
+  const [buscandoAhora, setBuscandoAhora] = useState(false);
+  const [ultimaBusqueda, setUltimaBusqueda] = useState(null);
   const [ofertaSeleccionada, setOfertaSeleccionada] = useState(null);
   const [generando, setGenerando] = useState(false);
   const [cvResult, setCvResult] = useState(null);
@@ -103,10 +103,18 @@ function BuscadorApp() {
   const [perfilOptimizado, setPerfilOptimizado] = useState(null);
   const logRef = useRef(null);
 
-  // Cargar perfil optimizado del módulo Perfil
+  // Cargar perfil optimizado y última búsqueda automática
   useEffect(() => {
     fetch('/api/perfil').then(r => r.json()).then(d => {
       if (d.perfil?.optimizado) setPerfilOptimizado(d.perfil.optimizado);
+    }).catch(() => {});
+
+    fetch('/api/jobs/ultima-busqueda').then(r => r.json()).then(d => {
+      if (d.ofertas?.length > 0) {
+        setOfertas(d.ofertas);
+        setUltimaBusqueda(d.fecha_busqueda);
+        log(`📦 ${d.ofertas.length} ofertas cargadas de búsqueda automática`, 'ok');
+      }
     }).catch(() => {});
   }, []);
 
@@ -136,6 +144,26 @@ function BuscadorApp() {
     setBuscando(false);
   };
 
+  // ── Buscar ahora (multi-término, usa caché del servidor) ───────────────────
+  const buscarAhora = async () => {
+    setBuscandoAhora(true);
+    setOfertaSeleccionada(null);
+    setCvResult(null);
+    log('🔄 Buscando en Lead UX, PO, PM y UX Lead simultáneamente…');
+    try {
+      const r = await fetch('/api/jobs/buscar-ahora', { method: 'POST' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
+      setOfertas(d.ofertas || []);
+      setUltimaBusqueda(d.fecha_busqueda);
+      log(`✓ ${d.total || 0} ofertas encontradas`, 'ok');
+      if (!d.ofertas?.length) log('Sin resultados. Verifica ADZUNA_APP_ID y ADZUNA_APP_KEY en .env', 'warn');
+    } catch (e) {
+      log(`✗ ${e.message}`, 'error');
+    }
+    setBuscandoAhora(false);
+  };
+
   // ── Generar CV ──────────────────────────────────────────────────────────────
   const generarCV = async () => {
     if (!ofertaSeleccionada) return;
@@ -160,10 +188,10 @@ function BuscadorApp() {
           logros: PERFIL_BASE.logros.join('\n'),
         };
 
-    const system = `Eres experto en RRHH y redacción de CVs para perfiles de producto digital en España.
+    const cvPrompt = `Eres experto en RRHH y redacción de CVs para perfiles de producto digital en España.
 Dado el perfil y la oferta, genera el CV personalizado.
 OBJETIVO DEL CANDIDATO: Lead UX/UI, Senior Product Owner, o Product Manager. No busca roles de especialista técnico (SEO, Analytics, WPO).
-Responde SOLO con JSON válido, sin backticks ni texto adicional:
+Responde SOLO con JSON válido:
 {
   "cv_resumen": "Resumen ejecutivo 3-4 líneas adaptado específicamente a esta oferta",
   "propuesta_valor": "Párrafo de propuesta de valor para esta empresa concreta (3-4 frases)",
@@ -171,9 +199,9 @@ Responde SOLO con JSON válido, sin backticks ni texto adicional:
   "carta_presentacion": "Carta completa en 4 párrafos: gancho → experiencia relevante → encaje con la empresa → cierre",
   "keywords_detectadas": ["keyword de la oferta 1", "keyword 2", "keyword 3", "keyword 4", "keyword 5"],
   "encaje": número del 1 al 100 indicando encaje con la oferta
-}`;
+}
 
-    const prompt = `PERFIL DE CÉSAR:
+PERFIL DE CÉSAR:
 Titular: ${p.titular}
 About: ${p.about}
 
@@ -192,8 +220,8 @@ Salario: ${ofertaSeleccionada.salario}
 Descripción: ${ofertaSeleccionada.descripcion}`;
 
     try {
-      log('🤖 Claude Sonnet adaptando CV…', 'info');
-      const raw = await callClaude([{ role: 'user', content: prompt }], system);
+      log('🤖 Gemini generando CV…', 'info');
+      const raw = await callGemini(cvPrompt, 2000, true);
       const parsed = parseJSON(raw);
       if (!parsed) throw new Error('Respuesta no válida. Inténtalo de nuevo.');
       setCvResult(parsed);
@@ -288,19 +316,36 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
       {fase === 'buscar' && (
         <div style={{ ...S.card, animation:'fadeIn 0.3s ease' }}>
           <span style={S.label}>BUSCAR OFERTAS</span>
-          <p style={{ ...S.small, marginBottom:14 }}>Ofertas reales de <strong style={{ color:C.text }}>Adzuna</strong> — agrega InfoJobs, LinkedIn, Indeed y otras fuentes en España.</p>
 
-          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-            <input
-              style={S.input}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && buscar()}
-              placeholder="Lead UX Product Owner, Product Manager…"
-            />
-            <button onClick={buscar} disabled={buscando || !query.trim()} style={{ ...S.btnPrimary, whiteSpace:'nowrap', opacity: buscando ? 0.6 : 1 }}>
-              {buscando ? 'Buscando…' : 'Buscar →'}
+          {/* Buscar ahora — búsqueda multi-término automática */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16, flexWrap:'wrap' }}>
+            <button onClick={buscarAhora} disabled={buscandoAhora} style={{ ...S.btnPrimary, opacity: buscandoAhora ? 0.6 : 1 }}>
+              {buscandoAhora ? '⏳ Buscando…' : '🔄 Buscar ahora'}
             </button>
+            {ultimaBusqueda ? (
+              <span style={{ fontSize:10, color:C.muted }}>
+                Última búsqueda: {new Date(ultimaBusqueda).toLocaleString('es-ES', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
+              </span>
+            ) : (
+              <span style={{ fontSize:10, color:C.dim }}>Búsqueda automática a las 9:00 y 18:00</span>
+            )}
+          </div>
+
+          {/* Búsqueda personalizada */}
+          <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14, marginBottom:16 }}>
+            <span style={{ ...S.labelMuted, marginBottom:8 }}>BÚSQUEDA PERSONALIZADA</span>
+            <div style={{ display:'flex', gap:8 }}>
+              <input
+                style={S.input}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && buscar()}
+                placeholder="Lead UX Product Owner, Product Manager…"
+              />
+              <button onClick={buscar} disabled={buscando || !query.trim()} style={{ ...S.btnSec, whiteSpace:'nowrap', opacity: buscando ? 0.6 : 1 }}>
+                {buscando ? 'Buscando…' : 'Buscar →'}
+              </button>
+            </div>
           </div>
 
           {ofertas.length > 0 && (
@@ -339,9 +384,9 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
             </div>
           )}
 
-          {ofertas.length === 0 && !buscando && (
+          {ofertas.length === 0 && !buscando && !buscandoAhora && (
             <div style={{ padding:32, textAlign:'center', border:`1px dashed ${C.border}`, borderRadius:10, color:C.dim, fontSize:12 }}>
-              Pulsa "Buscar" para encontrar ofertas en España
+              Pulsa "Buscar ahora" para encontrar ofertas en Lead UX, PO, PM y UX Lead
             </div>
           )}
         </div>
