@@ -10,7 +10,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #080b0f; color: #e2e8f0; font-family: 'Space Mono', monospace; }
+    body { font-family: 'Space Mono', monospace; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: #080b0f; }
     ::-webkit-scrollbar-thumb { background: #1c2230; border-radius: 2px; }
@@ -19,7 +19,7 @@
   </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Space Mono',monospace;color:#64748b;font-size:0.8rem">Cargando agente...</div></div>
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
@@ -173,7 +173,7 @@ async function callClaudeStream(prompt, onChunk) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1500,
       stream: true,
       messages: [{ role: 'user', content: prompt }],
@@ -223,15 +223,47 @@ async function callGemini(prompt, maxTokens = 2048) {
 }
 
 // ─── Colores ──────────────────────────────────────────────────────────────────
-const C = {
+const DARK_C = {
   bg: '#080b0f', panel: '#0e1117', border: '#1c2230',
   accent: '#2dd4bf', accentDim: '#0d3530', gold: '#F59E0B',
   green: '#10B981', red: '#EF4444', text: '#e2e8f0',
   muted: '#64748b', card: '#0e1117',
 };
 
+const LIGHT_C = {
+  bg: '#f1f5f9', panel: '#ffffff', border: '#e2e8f0',
+  accent: '#0d9488', accentDim: 'rgba(13,148,136,0.08)', gold: '#b45309',
+  green: '#059669', red: '#dc2626', text: '#0f172a',
+  muted: '#64748b', card: '#ffffff',
+};
+
 // ─── Componente principal ─────────────────────────────────────────────────────
-function LinkedInAgent() {
+function LinkedInAgent({ isDark }) {
+  const C = isDark ? DARK_C : LIGHT_C;
+
+  const S = {
+    app: { minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "'Space Mono', monospace", padding: 0 },
+    header: { background: isDark ? 'linear-gradient(135deg, #0e1117 0%, #111827 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)', padding: '28px 32px 20px', borderBottom: `1px solid ${C.border}` },
+    logo: { fontSize: 11, letterSpacing: 4, color: C.accent, fontFamily: 'monospace', marginBottom: 6 },
+    title: { fontSize: 22, fontWeight: 'bold', color: C.text, margin: '0 0 4px' },
+    subtitle: { fontSize: 13, color: C.muted, fontFamily: 'system-ui' },
+    main: { padding: '28px 32px', maxWidth: 820, margin: '0 auto' },
+    sTitle: { fontSize: 11, letterSpacing: 3, color: C.accent, fontFamily: 'monospace', marginBottom: 16, display: 'block' },
+    catLabel: { fontSize: 10, letterSpacing: 2, color: C.gold, fontFamily: 'monospace', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 },
+    temaCard: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 16px', cursor: 'pointer', fontSize: 14, color: C.text, fontFamily: 'system-ui', transition: 'all 0.15s', marginBottom: 8, textAlign: 'left', width: '100%' },
+    temaCardHover: { borderColor: C.accent, background: isDark ? '#111827' : '#f0fdf9' },
+    btn: { background: C.accent, color: isDark ? '#fff' : '#fff', border: 'none', borderRadius: 8, padding: '12px 28px', fontSize: 14, fontFamily: 'system-ui', fontWeight: 600, cursor: 'pointer' },
+    btnSecondary: { background: 'transparent', color: C.accent, border: `1px solid ${C.accent}`, borderRadius: 8, padding: '10px 22px', fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer' },
+    input: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', fontSize: 14, color: C.text, fontFamily: 'system-ui', width: '100%', boxSizing: 'border-box', outline: 'none' },
+    logBox: { background: isDark ? '#05080c' : '#f8fafc', border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, fontFamily: 'monospace', fontSize: 12, minHeight: 120, maxHeight: 200, overflowY: 'auto' },
+    streamBox: { background: isDark ? '#05080c' : '#f0fdf9', border: `1px solid ${C.accentDim}`, borderRadius: 8, padding: 16, fontFamily: 'system-ui', fontSize: 13, color: isDark ? '#5eead4' : '#0d9488', minHeight: 80, maxHeight: 220, overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.6 },
+    contentBox: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, fontSize: 14, lineHeight: 1.75, fontFamily: 'system-ui', color: C.text, whiteSpace: 'pre-wrap', minHeight: 200 },
+    pill: (v) => ({ display: 'inline-block', background: v === 'PUBLICAR YA' ? '#065F46' : v === 'REVISAR MENOR' ? '#78350F' : '#7F1D1D', color: '#fff', borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 'bold' }),
+    formatBtn: (active) => ({ background: active ? C.accent : C.card, color: active ? '#fff' : C.muted, border: `1px solid ${active ? C.accent : C.border}`, borderRadius: 8, padding: '10px 24px', fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer', fontWeight: active ? 600 : 400 }),
+  };
+
+  const logColor = { agente: C.accent, ok: isDark ? '#34D399' : '#059669', error: isDark ? '#F87171' : '#dc2626', info: C.muted };
+
   const [fase, setFase] = useState('inicio');
   const [temaPersonalizado, setTemaPersonalizado] = useState('');
   const [temaSeleccionado, setTemaSeleccionado] = useState(null);
@@ -360,29 +392,6 @@ function LinkedInAgent() {
     setImagenUrl('');
   };
 
-  const S = {
-    app: { minHeight: '100vh', background: C.bg, color: C.text, fontFamily: "'Space Mono', monospace", padding: 0 },
-    header: { background: 'linear-gradient(135deg, #0e1117 0%, #111827 100%)', padding: '28px 32px 20px', borderBottom: `1px solid ${C.border}` },
-    logo: { fontSize: 11, letterSpacing: 4, color: C.accent, fontFamily: 'monospace', marginBottom: 6 },
-    title: { fontSize: 22, fontWeight: 'bold', color: C.text, margin: '0 0 4px' },
-    subtitle: { fontSize: 13, color: C.muted, fontFamily: 'system-ui' },
-    main: { padding: '28px 32px', maxWidth: 820, margin: '0 auto' },
-    sTitle: { fontSize: 11, letterSpacing: 3, color: C.accent, fontFamily: 'monospace', marginBottom: 16, display: 'block' },
-    catLabel: { fontSize: 10, letterSpacing: 2, color: C.gold, fontFamily: 'monospace', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 },
-    temaCard: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 16px', cursor: 'pointer', fontSize: 14, color: C.text, fontFamily: 'system-ui', transition: 'all 0.15s', marginBottom: 8, textAlign: 'left', width: '100%' },
-    temaCardHover: { borderColor: C.accent, background: '#111827' },
-    btn: { background: C.accent, color: '#fff', border: 'none', borderRadius: 8, padding: '12px 28px', fontSize: 14, fontFamily: 'system-ui', fontWeight: 600, cursor: 'pointer' },
-    btnSecondary: { background: 'transparent', color: C.accent, border: `1px solid ${C.accent}`, borderRadius: 8, padding: '10px 22px', fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer' },
-    input: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '12px 16px', fontSize: 14, color: C.text, fontFamily: 'system-ui', width: '100%', boxSizing: 'border-box', outline: 'none' },
-    logBox: { background: '#05080c', border: `1px solid ${C.border}`, borderRadius: 8, padding: 16, fontFamily: 'monospace', fontSize: 12, minHeight: 120, maxHeight: 200, overflowY: 'auto' },
-    streamBox: { background: '#05080c', border: `1px solid ${C.accentDim}`, borderRadius: 8, padding: 16, fontFamily: 'system-ui', fontSize: 13, color: '#5eead4', minHeight: 80, maxHeight: 220, overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.6 },
-    contentBox: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, fontSize: 14, lineHeight: 1.75, fontFamily: 'system-ui', color: C.text, whiteSpace: 'pre-wrap', minHeight: 200 },
-    pill: (v) => ({ display: 'inline-block', background: v === 'PUBLICAR YA' ? '#065F46' : v === 'REVISAR MENOR' ? '#78350F' : '#7F1D1D', color: '#fff', borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 'bold' }),
-    formatBtn: (active) => ({ background: active ? C.accent : C.card, color: active ? '#fff' : C.muted, border: `1px solid ${active ? C.accent : C.border}`, borderRadius: 8, padding: '10px 24px', fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer', fontWeight: active ? 600 : 400 }),
-  };
-
-  const logColor = { agente: '#2dd4bf', ok: '#34D399', error: '#F87171', info: C.muted };
-
   if (fase === 'inicio') return (
     <div style={S.app}>
       <div style={S.header}>
@@ -418,7 +427,7 @@ function LinkedInAgent() {
                   onClick={() => { setContenido(h.contenido); setTemaSeleccionado(h.tema); setFormato(h.formato); setImagenUrl(h.imagenUrl || ''); setCritica(null); setFase('resultado'); }}>
                   {h.imagenUrl && <img src={h.imagenUrl} alt="" style={{ width: 80, height: 42, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, color: '#fff', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.tema}</div>
+                    <div style={{ fontSize: 12, color: C.text, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.tema}</div>
                     <div style={{ fontSize: 10, color: C.muted }}>{h.formato} · {h.fecha}</div>
                   </div>
                 </div>
@@ -504,7 +513,7 @@ function LinkedInAgent() {
           {['investigador', 'debatista_a', 'debatista_b', 'editor', 'critico', 'imagen'].map((f, i) => (
             <span key={f} style={{
               padding: '4px 12px', borderRadius: 999, fontSize: 11, fontFamily: 'monospace',
-              background: faseActual === f ? C.accent : '#111827',
+              background: faseActual === f ? C.accent : isDark ? '#111827' : '#f1f5f9',
               color: faseActual === f ? '#fff' : C.muted,
               border: `1px solid ${faseActual === f ? C.accent : C.border}`,
             }}>
@@ -542,7 +551,7 @@ function LinkedInAgent() {
       <div style={S.main}>
 
         {critica && (
-          <div style={{ background: '#0C1A0C', border: '1px solid #166534', borderRadius: 10, padding: 20, marginBottom: 24, fontFamily: 'system-ui' }}>
+          <div style={{ background: isDark ? '#0C1A0C' : '#f0fdf4', border: `1px solid ${isDark ? '#166534' : '#86efac'}`, borderRadius: 10, padding: 20, marginBottom: 24, fontFamily: 'system-ui' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{ fontSize: 11, letterSpacing: 2, color: C.green, fontFamily: 'monospace' }}>EVALUACIÓN DEL CRÍTICO</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -555,11 +564,11 @@ function LinkedInAgent() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 13 }}>
               <div>
                 <div style={{ fontSize: 10, color: C.green, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 6 }}>PUNTOS FUERTES</div>
-                {critica.puntos_fuertes?.map((p, i) => <div key={i} style={{ color: '#D1FAE5', marginBottom: 3 }}>✓ {p}</div>)}
+                {critica.puntos_fuertes?.map((p, i) => <div key={i} style={{ color: isDark ? '#D1FAE5' : '#065f46', marginBottom: 3 }}>✓ {p}</div>)}
               </div>
               <div>
                 <div style={{ fontSize: 10, color: C.gold, fontFamily: 'monospace', letterSpacing: 2, marginBottom: 6 }}>MEJORAS</div>
-                {critica.mejoras?.map((m, i) => <div key={i} style={{ color: '#FEF3C7', marginBottom: 3 }}>→ {m}</div>)}
+                {critica.mejoras?.map((m, i) => <div key={i} style={{ color: isDark ? '#FEF3C7' : '#92400e', marginBottom: 3 }}>→ {m}</div>)}
               </div>
             </div>
             {critica.gancho && <div style={{ marginTop: 10, fontSize: 12, color: C.muted, fontStyle: 'italic' }}>Gancho: {critica.gancho}</div>}
@@ -619,7 +628,39 @@ function LinkedInAgent() {
   return null;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<LinkedInAgent />);
+function App() {
+  const [isDark, setIsDark] = React.useState(() => {
+    try { return localStorage.getItem('theme') !== 'light'; } catch { return true; }
+  });
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch {}
+    document.body.style.background = next ? '#080b0f' : '#f1f5f9';
+  };
+  React.useEffect(() => {
+    document.body.style.background = isDark ? '#080b0f' : '#f1f5f9';
+  }, []);
+  return (
+    <>
+      <button
+        onClick={toggle}
+        style={{
+          position:'fixed', top:12, right:12, zIndex:9999,
+          background: isDark ? '#0e1117' : '#ffffff',
+          border: `1px solid ${isDark ? '#1c2230' : '#e2e8f0'}`,
+          borderRadius:8, padding:'6px 14px', cursor:'pointer',
+          color: isDark ? '#e2e8f0' : '#0f172a',
+          fontFamily:"'Space Mono',monospace", fontSize:'0.7rem',
+          transition:'all 0.2s',
+        }}
+      >{isDark ? '☀ Claro' : '◑ Oscuro'}</button>
+      <LinkedInAgent isDark={isDark} />
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>

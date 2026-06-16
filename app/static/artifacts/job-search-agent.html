@@ -10,7 +10,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:#080b0f;color:#e2e8f0;font-family:'Space Mono',monospace}
+    body{font-family:'Space Mono',monospace}
     ::-webkit-scrollbar{width:4px}
     ::-webkit-scrollbar-track{background:#080b0f}
     ::-webkit-scrollbar-thumb{background:#1c2230;border-radius:2px}
@@ -19,14 +19,25 @@
   </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Space Mono',monospace;color:#64748b;font-size:0.8rem">Cargando agente...</div></div>
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
-const C = {
+const DARK = {
   bg:'#080b0f', surface:'#0e1117', border:'#1c2230', accent:'#2dd4bf',
   accentDim:'#0d3530', text:'#e2e8f0', muted:'#64748b', dim:'#334155',
   ok:'#22c55e', error:'#ef4444', warn:'#f59e0b',
+};
+
+const LIGHT = {
+  bg: '#f1f5f9', surface: '#ffffff', surfaceHover: '#f8fafc',
+  border: '#e2e8f0', borderActive: '#0d9488', accent: '#0d9488',
+  accentDim: 'rgba(13,148,136,0.08)', text: '#0f172a', textMuted: '#64748b',
+  textDim: '#94a3b8', green: '#16a34a', red: '#dc2626',
+  yellow: '#d97706', blue: '#2563eb',
+  // aliases to match DARK keys
+  muted: '#64748b', dim: '#94a3b8',
+  ok: '#16a34a', error: '#dc2626', warn: '#d97706',
 };
 
 // ─── Perfil base de César (fallback si no hay perfil optimizado guardado) ──
@@ -54,20 +65,6 @@ Busco roles de Lead UX/UI, Senior PO o Product Manager en empresas de producto d
   busqueda: 'Lead UX/UI, Senior Product Owner, Product Manager en producto digital / ecommerce. Remoto o híbrido, España.',
 };
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
-const S = {
-  card:{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:'20px 22px' },
-  label:{ fontSize:10, letterSpacing:3, color:C.accent, marginBottom:8, display:'block' },
-  labelMuted:{ fontSize:10, letterSpacing:3, color:C.muted, marginBottom:6, display:'block' },
-  text:{ fontSize:13, color:C.text, lineHeight:1.8 },
-  small:{ fontSize:12, color:C.muted, lineHeight:1.7 },
-  btnPrimary:{ background:C.accent, color:'#000', border:'none', borderRadius:8, padding:'10px 22px', fontFamily:"'Space Mono',monospace", fontSize:12, fontWeight:700, cursor:'pointer' },
-  btnSec:{ background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, borderRadius:8, padding:'9px 18px', fontFamily:"'Space Mono',monospace", fontSize:12, cursor:'pointer' },
-  btnGhost:{ background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 16px', fontFamily:"'Space Mono',monospace", fontSize:11, cursor:'pointer' },
-  input:{ width:'100%', background:'#05080c', border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:"'Space Mono',monospace", fontSize:12, padding:'9px 14px', outline:'none' },
-  tag:{ display:'inline-block', background:C.accentDim, color:C.accent, borderRadius:4, padding:'2px 8px', fontSize:10, marginRight:4, marginBottom:3 },
-};
-
 // ─── Llamada a Gemini (gratis, con fallback a Claude Haiku) ──────────────────
 async function callGemini(prompt, maxTokens = 2000, asJson = false) {
   const r = await fetch('/api/gemini', {
@@ -87,7 +84,22 @@ function parseJSON(text) {
 }
 
 // ─── App ─────────────────────────────────────────────────────────────────────
-function BuscadorApp() {
+function BuscadorApp({ isDark }) {
+  const C = isDark ? DARK : LIGHT;
+
+  const S = {
+    card:{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:'20px 22px' },
+    label:{ fontSize:10, letterSpacing:3, color:C.accent, marginBottom:8, display:'block' },
+    labelMuted:{ fontSize:10, letterSpacing:3, color:C.muted, marginBottom:6, display:'block' },
+    text:{ fontSize:13, color:C.text, lineHeight:1.8 },
+    small:{ fontSize:12, color:C.muted, lineHeight:1.7 },
+    btnPrimary:{ background:C.accent, color: isDark ? '#000' : '#fff', border:'none', borderRadius:8, padding:'10px 22px', fontFamily:"'Space Mono',monospace", fontSize:12, fontWeight:700, cursor:'pointer' },
+    btnSec:{ background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, borderRadius:8, padding:'9px 18px', fontFamily:"'Space Mono',monospace", fontSize:12, cursor:'pointer' },
+    btnGhost:{ background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 16px', fontFamily:"'Space Mono',monospace", fontSize:11, cursor:'pointer' },
+    input:{ width:'100%', background: isDark ? '#05080c' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:"'Space Mono',monospace", fontSize:12, padding:'9px 14px', outline:'none' },
+    tag:{ display:'inline-block', background:C.accentDim, color:C.accent, borderRadius:4, padding:'2px 8px', fontSize:10, marginRight:4, marginBottom:3 },
+  };
+
   const [fase, setFase] = useState('buscar');   // buscar | cv | telegram
   const [query, setQuery] = useState('Lead UX Product Owner');
   const [ofertas, setOfertas] = useState([]);
@@ -291,7 +303,7 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
           <div style={{ width:7, height:7, borderRadius:'50%', background:C.accent, boxShadow:`0 0 8px ${C.accent}`, animation:'pulse 2s infinite' }} />
           <span style={{ color:C.accent, fontSize:10, letterSpacing:'0.18em' }}>BUSCADOR DE EMPLEO</span>
         </div>
-        <h1 style={{ fontSize:20, fontWeight:700, color:'#fff', letterSpacing:'-0.02em', marginBottom:2 }}>Job Search Agent</h1>
+        <h1 style={{ fontSize:20, fontWeight:700, color:C.text, letterSpacing:'-0.02em', marginBottom:2 }}>Job Search Agent</h1>
         <p style={{ fontSize:11, color:C.muted }}>{PERFIL_BASE.nombre} · {perfilOptimizado ? 'usando perfil optimizado ✓' : 'perfil base'}</p>
       </div>
 
@@ -352,11 +364,11 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {ofertas.map(o => (
                 <div key={o.id} onClick={() => setOfertaSeleccionada(o)} style={{
-                  background: ofertaSeleccionada?.id === o.id ? C.accentDim : '#05080c',
+                  background: ofertaSeleccionada?.id === o.id ? C.accentDim : (isDark ? '#05080c' : '#f8fafc'),
                   border: `1px solid ${ofertaSeleccionada?.id === o.id ? C.accent : C.border}`,
                   borderRadius:10, padding:14, cursor:'pointer',
                 }}>
-                  <div style={{ fontWeight:700, color:'#fff', fontSize:13, marginBottom:2 }}>{o.titulo}</div>
+                  <div style={{ fontWeight:700, color:C.text, fontSize:13, marginBottom:2 }}>{o.titulo}</div>
                   <div style={{ color:C.accent, fontSize:11, marginBottom:6 }}>{o.empresa} · {o.ubicacion}</div>
                   <div style={{ display:'flex', gap:12, fontSize:10, color:C.muted, flexWrap:'wrap', alignItems:'center' }}>
                     <span>💰 {o.salario}</span>
@@ -429,7 +441,7 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
                   ].map(({ label, key }) => cvResult[key] && (
                     <div key={key}>
                       <span style={S.labelMuted}>{label.toUpperCase()}</span>
-                      <div style={{ background:'#05080c', border:`1px solid ${C.border}`, borderRadius:8, padding:12, fontSize:12, lineHeight:1.8, whiteSpace:'pre-wrap', color:C.text }}>
+                      <div style={{ background: isDark ? '#05080c' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:8, padding:12, fontSize:12, lineHeight:1.8, whiteSpace:'pre-wrap', color:C.text }}>
                         {cvResult[key]}
                       </div>
                     </div>
@@ -484,7 +496,7 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
             </div>
           ) : (
             <>
-              <div style={{ background:'#05080c', border:`1px solid ${C.border}`, borderRadius:10, padding:16, marginBottom:16, fontSize:12, lineHeight:1.9 }}>
+              <div style={{ background: isDark ? '#05080c' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:10, padding:16, marginBottom:16, fontSize:12, lineHeight:1.9 }}>
                 <div style={{ color:C.accent, fontWeight:700, marginBottom:8 }}>Mensaje que se enviará:</div>
                 <div style={{ color:C.muted }}>
                   🏢 <strong style={{ color:C.text }}>{ofertaSeleccionada?.empresa}</strong> · {ofertaSeleccionada?.titulo}<br />
@@ -520,7 +532,7 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
       {logs.length > 0 && (
         <div style={{ marginTop:20 }}>
           <span style={S.labelMuted}>CONSOLE</span>
-          <div ref={logRef} style={{ background:'#03050a', border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 14px', maxHeight:140, overflowY:'auto', fontSize:11 }}>
+          <div ref={logRef} style={{ background: isDark ? '#03050a' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 14px', maxHeight:140, overflowY:'auto', fontSize:11 }}>
             {logs.map((l, i) => (
               <div key={i} style={{ color: l.tipo==='ok'?C.ok:l.tipo==='error'?C.error:l.tipo==='warn'?C.warn:C.muted, marginBottom:2 }}>
                 <span style={{ color:C.dim }}>› </span>{l.msg}
@@ -533,7 +545,39 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<BuscadorApp />);
+function App() {
+  const [isDark, setIsDark] = React.useState(() => {
+    try { return localStorage.getItem('theme') !== 'light'; } catch { return true; }
+  });
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch {}
+    document.body.style.background = next ? '#080b0f' : '#f1f5f9';
+  };
+  React.useEffect(() => {
+    document.body.style.background = isDark ? '#080b0f' : '#f1f5f9';
+  }, []);
+  return (
+    <>
+      <button
+        onClick={toggle}
+        style={{
+          position:'fixed', top:12, right:12, zIndex:9999,
+          background: isDark ? '#0e1117' : '#ffffff',
+          border: `1px solid ${isDark ? '#1c2230' : '#e2e8f0'}`,
+          borderRadius:8, padding:'6px 14px', cursor:'pointer',
+          color: isDark ? '#e2e8f0' : '#0f172a',
+          fontFamily:"'Space Mono',monospace", fontSize:'0.7rem',
+          transition:'all 0.2s',
+        }}
+      >{isDark ? '☀ Claro' : '◑ Oscuro'}</button>
+      <BuscadorApp isDark={isDark} />
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
