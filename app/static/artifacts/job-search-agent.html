@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Buscador de Empleo</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="/js/react.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js'"></script>
+  <script src="/js/react-dom.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js'"></script>
+  <script src="/js/babel.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.10/babel.min.js'"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{background:#080b0f;color:#e2e8f0;font-family:'Space Mono',monospace}
@@ -19,14 +19,25 @@
   </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Space Mono',monospace;color:#64748b;font-size:0.8rem">Cargando agente...</div></div>
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
-const C = {
+const DARK = {
   bg:'#080b0f', surface:'#0e1117', border:'#1c2230', accent:'#2dd4bf',
   accentDim:'#0d3530', text:'#e2e8f0', muted:'#64748b', dim:'#334155',
   ok:'#22c55e', error:'#ef4444', warn:'#f59e0b',
+};
+
+const LIGHT = {
+  bg: '#f1f5f9', surface: '#ffffff', surfaceHover: '#f8fafc',
+  border: '#e2e8f0', borderActive: '#0d9488', accent: '#0d9488',
+  accentDim: 'rgba(13,148,136,0.08)', text: '#0f172a', textMuted: '#64748b',
+  textDim: '#94a3b8', green: '#16a34a', red: '#dc2626',
+  yellow: '#d97706', blue: '#2563eb',
+  // aliases to match DARK keys
+  muted: '#64748b', dim: '#94a3b8',
+  ok: '#16a34a', error: '#dc2626', warn: '#d97706',
 };
 
 // ─── Perfil base de César (fallback si no hay perfil optimizado guardado) ──
@@ -54,31 +65,15 @@ Busco roles de Lead UX/UI, Senior PO o Product Manager en empresas de producto d
   busqueda: 'Lead UX/UI, Senior Product Owner, Product Manager en producto digital / ecommerce. Remoto o híbrido, España.',
 };
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
-const S = {
-  card:{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:'20px 22px' },
-  label:{ fontSize:10, letterSpacing:3, color:C.accent, marginBottom:8, display:'block' },
-  labelMuted:{ fontSize:10, letterSpacing:3, color:C.muted, marginBottom:6, display:'block' },
-  text:{ fontSize:13, color:C.text, lineHeight:1.8 },
-  small:{ fontSize:12, color:C.muted, lineHeight:1.7 },
-  btnPrimary:{ background:C.accent, color:'#000', border:'none', borderRadius:8, padding:'10px 22px', fontFamily:"'Space Mono',monospace", fontSize:12, fontWeight:700, cursor:'pointer' },
-  btnSec:{ background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, borderRadius:8, padding:'9px 18px', fontFamily:"'Space Mono',monospace", fontSize:12, cursor:'pointer' },
-  btnGhost:{ background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 16px', fontFamily:"'Space Mono',monospace", fontSize:11, cursor:'pointer' },
-  input:{ width:'100%', background:'#05080c', border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:"'Space Mono',monospace", fontSize:12, padding:'9px 14px', outline:'none' },
-  tag:{ display:'inline-block', background:C.accentDim, color:C.accent, borderRadius:4, padding:'2px 8px', fontSize:10, marginRight:4, marginBottom:3 },
-};
-
-// ─── Llamada a Claude ─────────────────────────────────────────────────────────
-async function callClaude(messages, system = '', maxTokens = 3000) {
-  const body = { model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages };
-  if (system) body.system = system;
-  const r = await fetch('/api/claude', {
+// ─── Llamada a Gemini (gratis, con fallback a Claude Haiku) ──────────────────
+async function callGemini(prompt, maxTokens = 2000, asJson = false) {
+  const r = await fetch('/api/gemini', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ prompt, max_tokens: maxTokens, json: asJson }),
   });
   const d = await r.json();
-  if (!r.ok) throw new Error(d.detail || `Error Claude ${r.status}`);
-  return d.content?.[0]?.text || '';
+  if (!r.ok) throw new Error(d.detail || `Error Gemini ${r.status}`);
+  return d.text || '';
 }
 
 function parseJSON(text) {
@@ -89,11 +84,28 @@ function parseJSON(text) {
 }
 
 // ─── App ─────────────────────────────────────────────────────────────────────
-function BuscadorApp() {
+function BuscadorApp({ isDark }) {
+  const C = isDark ? DARK : LIGHT;
+
+  const S = {
+    card:{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:'20px 22px' },
+    label:{ fontSize:10, letterSpacing:3, color:C.accent, marginBottom:8, display:'block' },
+    labelMuted:{ fontSize:10, letterSpacing:3, color:C.muted, marginBottom:6, display:'block' },
+    text:{ fontSize:13, color:C.text, lineHeight:1.8 },
+    small:{ fontSize:12, color:C.muted, lineHeight:1.7 },
+    btnPrimary:{ background:C.accent, color: isDark ? '#000' : '#fff', border:'none', borderRadius:8, padding:'10px 22px', fontFamily:"'Space Mono',monospace", fontSize:12, fontWeight:700, cursor:'pointer' },
+    btnSec:{ background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, borderRadius:8, padding:'9px 18px', fontFamily:"'Space Mono',monospace", fontSize:12, cursor:'pointer' },
+    btnGhost:{ background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 16px', fontFamily:"'Space Mono',monospace", fontSize:11, cursor:'pointer' },
+    input:{ width:'100%', background: isDark ? '#05080c' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:"'Space Mono',monospace", fontSize:12, padding:'9px 14px', outline:'none' },
+    tag:{ display:'inline-block', background:C.accentDim, color:C.accent, borderRadius:4, padding:'2px 8px', fontSize:10, marginRight:4, marginBottom:3 },
+  };
+
   const [fase, setFase] = useState('buscar');   // buscar | cv | telegram
   const [query, setQuery] = useState('Lead UX Product Owner');
   const [ofertas, setOfertas] = useState([]);
   const [buscando, setBuscando] = useState(false);
+  const [buscandoAhora, setBuscandoAhora] = useState(false);
+  const [ultimaBusqueda, setUltimaBusqueda] = useState(null);
   const [ofertaSeleccionada, setOfertaSeleccionada] = useState(null);
   const [generando, setGenerando] = useState(false);
   const [cvResult, setCvResult] = useState(null);
@@ -103,10 +115,18 @@ function BuscadorApp() {
   const [perfilOptimizado, setPerfilOptimizado] = useState(null);
   const logRef = useRef(null);
 
-  // Cargar perfil optimizado del módulo Perfil
+  // Cargar perfil optimizado y última búsqueda automática
   useEffect(() => {
     fetch('/api/perfil').then(r => r.json()).then(d => {
       if (d.perfil?.optimizado) setPerfilOptimizado(d.perfil.optimizado);
+    }).catch(() => {});
+
+    fetch('/api/jobs/ultima-busqueda').then(r => r.json()).then(d => {
+      if (d.ofertas?.length > 0) {
+        setOfertas(d.ofertas);
+        setUltimaBusqueda(d.fecha_busqueda);
+        log(`📦 ${d.ofertas.length} ofertas cargadas de búsqueda automática`, 'ok');
+      }
     }).catch(() => {});
   }, []);
 
@@ -124,7 +144,7 @@ function BuscadorApp() {
     setCvResult(null);
     log('🔍 Buscando en Adzuna…');
     try {
-      const r = await fetch(`/api/jobs?q=${encodeURIComponent(query)}&location=España`);
+      const r = await fetch(`/api/jobs?q=${encodeURIComponent(query)}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
       setOfertas(d.ofertas || []);
@@ -134,6 +154,26 @@ function BuscadorApp() {
       log(`✗ ${e.message}`, 'error');
     }
     setBuscando(false);
+  };
+
+  // ── Buscar ahora (multi-término, usa caché del servidor) ───────────────────
+  const buscarAhora = async () => {
+    setBuscandoAhora(true);
+    setOfertaSeleccionada(null);
+    setCvResult(null);
+    log('🔄 Buscando en Lead UX, PO, PM y UX Lead simultáneamente…');
+    try {
+      const r = await fetch('/api/jobs/buscar-ahora', { method: 'POST' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
+      setOfertas(d.ofertas || []);
+      setUltimaBusqueda(d.fecha_busqueda);
+      log(`✓ ${d.total || 0} ofertas encontradas`, 'ok');
+      if (!d.ofertas?.length) log('Sin resultados. Verifica ADZUNA_APP_ID y ADZUNA_APP_KEY en .env', 'warn');
+    } catch (e) {
+      log(`✗ ${e.message}`, 'error');
+    }
+    setBuscandoAhora(false);
   };
 
   // ── Generar CV ──────────────────────────────────────────────────────────────
@@ -160,10 +200,10 @@ function BuscadorApp() {
           logros: PERFIL_BASE.logros.join('\n'),
         };
 
-    const system = `Eres experto en RRHH y redacción de CVs para perfiles de producto digital en España.
+    const cvPrompt = `Eres experto en RRHH y redacción de CVs para perfiles de producto digital en España.
 Dado el perfil y la oferta, genera el CV personalizado.
 OBJETIVO DEL CANDIDATO: Lead UX/UI, Senior Product Owner, o Product Manager. No busca roles de especialista técnico (SEO, Analytics, WPO).
-Responde SOLO con JSON válido, sin backticks ni texto adicional:
+Responde SOLO con JSON válido:
 {
   "cv_resumen": "Resumen ejecutivo 3-4 líneas adaptado específicamente a esta oferta",
   "propuesta_valor": "Párrafo de propuesta de valor para esta empresa concreta (3-4 frases)",
@@ -171,9 +211,9 @@ Responde SOLO con JSON válido, sin backticks ni texto adicional:
   "carta_presentacion": "Carta completa en 4 párrafos: gancho → experiencia relevante → encaje con la empresa → cierre",
   "keywords_detectadas": ["keyword de la oferta 1", "keyword 2", "keyword 3", "keyword 4", "keyword 5"],
   "encaje": número del 1 al 100 indicando encaje con la oferta
-}`;
+}
 
-    const prompt = `PERFIL DE CÉSAR:
+PERFIL DE CÉSAR:
 Titular: ${p.titular}
 About: ${p.about}
 
@@ -192,8 +232,8 @@ Salario: ${ofertaSeleccionada.salario}
 Descripción: ${ofertaSeleccionada.descripcion}`;
 
     try {
-      log('🤖 Claude Sonnet adaptando CV…', 'info');
-      const raw = await callClaude([{ role: 'user', content: prompt }], system);
+      log('🤖 Gemini generando CV…', 'info');
+      const raw = await callGemini(cvPrompt, 2000, true);
       const parsed = parseJSON(raw);
       if (!parsed) throw new Error('Respuesta no válida. Inténtalo de nuevo.');
       setCvResult(parsed);
@@ -263,7 +303,7 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
           <div style={{ width:7, height:7, borderRadius:'50%', background:C.accent, boxShadow:`0 0 8px ${C.accent}`, animation:'pulse 2s infinite' }} />
           <span style={{ color:C.accent, fontSize:10, letterSpacing:'0.18em' }}>BUSCADOR DE EMPLEO</span>
         </div>
-        <h1 style={{ fontSize:20, fontWeight:700, color:'#fff', letterSpacing:'-0.02em', marginBottom:2 }}>Job Search Agent</h1>
+        <h1 style={{ fontSize:20, fontWeight:700, color:C.text, letterSpacing:'-0.02em', marginBottom:2 }}>Job Search Agent</h1>
         <p style={{ fontSize:11, color:C.muted }}>{PERFIL_BASE.nombre} · {perfilOptimizado ? 'usando perfil optimizado ✓' : 'perfil base'}</p>
       </div>
 
@@ -288,35 +328,53 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
       {fase === 'buscar' && (
         <div style={{ ...S.card, animation:'fadeIn 0.3s ease' }}>
           <span style={S.label}>BUSCAR OFERTAS</span>
-          <p style={{ ...S.small, marginBottom:14 }}>Ofertas reales de <strong style={{ color:C.text }}>Adzuna</strong> — agrega InfoJobs, LinkedIn, Indeed y otras fuentes en España.</p>
 
-          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-            <input
-              style={S.input}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && buscar()}
-              placeholder="Lead UX Product Owner, Product Manager…"
-            />
-            <button onClick={buscar} disabled={buscando || !query.trim()} style={{ ...S.btnPrimary, whiteSpace:'nowrap', opacity: buscando ? 0.6 : 1 }}>
-              {buscando ? 'Buscando…' : 'Buscar →'}
+          {/* Buscar ahora — búsqueda multi-término automática */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16, flexWrap:'wrap' }}>
+            <button onClick={buscarAhora} disabled={buscandoAhora} style={{ ...S.btnPrimary, opacity: buscandoAhora ? 0.6 : 1 }}>
+              {buscandoAhora ? '⏳ Buscando…' : '🔄 Buscar ahora'}
             </button>
+            {ultimaBusqueda ? (
+              <span style={{ fontSize:10, color:C.muted }}>
+                Última búsqueda: {new Date(ultimaBusqueda).toLocaleString('es-ES', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
+              </span>
+            ) : (
+              <span style={{ fontSize:10, color:C.dim }}>Búsqueda automática a las 9:00 y 18:00</span>
+            )}
+          </div>
+
+          {/* Búsqueda personalizada */}
+          <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14, marginBottom:16 }}>
+            <span style={{ ...S.labelMuted, marginBottom:8 }}>BÚSQUEDA PERSONALIZADA</span>
+            <div style={{ display:'flex', gap:8 }}>
+              <input
+                style={S.input}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && buscar()}
+                placeholder="Lead UX Product Owner, Product Manager…"
+              />
+              <button onClick={buscar} disabled={buscando || !query.trim()} style={{ ...S.btnSec, whiteSpace:'nowrap', opacity: buscando ? 0.6 : 1 }}>
+                {buscando ? 'Buscando…' : 'Buscar →'}
+              </button>
+            </div>
           </div>
 
           {ofertas.length > 0 && (
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {ofertas.map(o => (
                 <div key={o.id} onClick={() => setOfertaSeleccionada(o)} style={{
-                  background: ofertaSeleccionada?.id === o.id ? C.accentDim : '#05080c',
+                  background: ofertaSeleccionada?.id === o.id ? C.accentDim : (isDark ? '#05080c' : '#f8fafc'),
                   border: `1px solid ${ofertaSeleccionada?.id === o.id ? C.accent : C.border}`,
                   borderRadius:10, padding:14, cursor:'pointer',
                 }}>
-                  <div style={{ fontWeight:700, color:'#fff', fontSize:13, marginBottom:2 }}>{o.titulo}</div>
+                  <div style={{ fontWeight:700, color:C.text, fontSize:13, marginBottom:2 }}>{o.titulo}</div>
                   <div style={{ color:C.accent, fontSize:11, marginBottom:6 }}>{o.empresa} · {o.ubicacion}</div>
-                  <div style={{ display:'flex', gap:12, fontSize:10, color:C.muted, flexWrap:'wrap' }}>
+                  <div style={{ display:'flex', gap:12, fontSize:10, color:C.muted, flexWrap:'wrap', alignItems:'center' }}>
                     <span>💰 {o.salario}</span>
                     <span>🏠 {o.modalidad}</span>
                     {o.fecha && <span>📅 {o.fecha}</span>}
+                    {o.fuente && <span style={{ background: o.fuente==='Remotive'?'rgba(99,102,241,0.12)':'rgba(45,212,191,0.1)', color: o.fuente==='Remotive'?'#818cf8':C.accent, border:`1px solid ${o.fuente==='Remotive'?'rgba(99,102,241,0.3)':'rgba(45,212,191,0.3)'}`, borderRadius:3, padding:'1px 6px' }}>{o.fuente}</span>}
                   </div>
                   {ofertaSeleccionada?.id === o.id && (
                     <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${C.accent}` }}>
@@ -339,9 +397,9 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
             </div>
           )}
 
-          {ofertas.length === 0 && !buscando && (
+          {ofertas.length === 0 && !buscando && !buscandoAhora && (
             <div style={{ padding:32, textAlign:'center', border:`1px dashed ${C.border}`, borderRadius:10, color:C.dim, fontSize:12 }}>
-              Pulsa "Buscar" para encontrar ofertas en España
+              Pulsa "Buscar ahora" para encontrar ofertas en Lead UX, PO, PM y UX Lead
             </div>
           )}
         </div>
@@ -383,7 +441,7 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
                   ].map(({ label, key }) => cvResult[key] && (
                     <div key={key}>
                       <span style={S.labelMuted}>{label.toUpperCase()}</span>
-                      <div style={{ background:'#05080c', border:`1px solid ${C.border}`, borderRadius:8, padding:12, fontSize:12, lineHeight:1.8, whiteSpace:'pre-wrap', color:C.text }}>
+                      <div style={{ background: isDark ? '#05080c' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:8, padding:12, fontSize:12, lineHeight:1.8, whiteSpace:'pre-wrap', color:C.text }}>
                         {cvResult[key]}
                       </div>
                     </div>
@@ -438,7 +496,7 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
             </div>
           ) : (
             <>
-              <div style={{ background:'#05080c', border:`1px solid ${C.border}`, borderRadius:10, padding:16, marginBottom:16, fontSize:12, lineHeight:1.9 }}>
+              <div style={{ background: isDark ? '#05080c' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:10, padding:16, marginBottom:16, fontSize:12, lineHeight:1.9 }}>
                 <div style={{ color:C.accent, fontWeight:700, marginBottom:8 }}>Mensaje que se enviará:</div>
                 <div style={{ color:C.muted }}>
                   🏢 <strong style={{ color:C.text }}>{ofertaSeleccionada?.empresa}</strong> · {ofertaSeleccionada?.titulo}<br />
@@ -474,7 +532,7 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
       {logs.length > 0 && (
         <div style={{ marginTop:20 }}>
           <span style={S.labelMuted}>CONSOLE</span>
-          <div ref={logRef} style={{ background:'#03050a', border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 14px', maxHeight:140, overflowY:'auto', fontSize:11 }}>
+          <div ref={logRef} style={{ background: isDark ? '#03050a' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 14px', maxHeight:140, overflowY:'auto', fontSize:11 }}>
             {logs.map((l, i) => (
               <div key={i} style={{ color: l.tipo==='ok'?C.ok:l.tipo==='error'?C.error:l.tipo==='warn'?C.warn:C.muted, marginBottom:2 }}>
                 <span style={{ color:C.dim }}>› </span>{l.msg}
@@ -487,7 +545,39 @@ ${ofertaSeleccionada.url ? `🔗 <a href="${ofertaSeleccionada.url}">Ver oferta<
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<BuscadorApp />);
+function App() {
+  const [isDark, setIsDark] = React.useState(() => {
+    try { return localStorage.getItem('theme') !== 'light'; } catch { return true; }
+  });
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch {}
+    document.body.style.background = next ? '#080b0f' : '#f1f5f9';
+  };
+  React.useEffect(() => {
+    document.body.style.background = isDark ? '#080b0f' : '#f1f5f9';
+  }, []);
+  return (
+    <>
+      <button
+        onClick={toggle}
+        style={{
+          position:'fixed', top:12, right:12, zIndex:9999,
+          background: isDark ? '#0e1117' : '#ffffff',
+          border: `1px solid ${isDark ? '#1c2230' : '#e2e8f0'}`,
+          borderRadius:8, padding:'6px 14px', cursor:'pointer',
+          color: isDark ? '#e2e8f0' : '#0f172a',
+          fontFamily:"'Space Mono',monospace", fontSize:'0.7rem',
+          transition:'all 0.2s',
+        }}
+      >{isDark ? '☀ Claro' : '◑ Oscuro'}</button>
+      <BuscadorApp isDark={isDark} />
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>

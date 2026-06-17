@@ -8,7 +8,8 @@ services:
     env_file:
       - .env
     volumes:
-      - ./app/static:/app/static:ro
+      - ./app/static/index.html:/app/static/index.html:ro
+      - ./app/static/artifacts:/app/static/artifacts:ro
       - ./data:/app/data
     deploy:
       resources:

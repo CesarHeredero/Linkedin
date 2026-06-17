@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Perfil LinkedIn Agent</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="/js/react.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js'"></script>
+  <script src="/js/react-dom.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js'"></script>
+  <script src="/js/babel.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.10/babel.min.js'"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{background:#080b0f;color:#e2e8f0;font-family:'Space Mono',monospace}
@@ -19,31 +19,22 @@
   </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Space Mono',monospace;color:#64748b;font-size:0.8rem">Cargando agente...</div></div>
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
-const C = {
+const DARK_C = {
   bg:'#080b0f', surface:'#0e1117', border:'#1c2230',
   text:'#e2e8f0', muted:'#64748b', accent:'#2dd4bf',
   accentDim:'rgba(45,212,191,0.08)', ok:'#22c55e',
   error:'#ef4444', warn:'#f59e0b',
 };
 
-const S = {
-  page:{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Space Mono',monospace", paddingBottom:60 },
-  wrap:{ maxWidth:780, margin:'0 auto', padding:'0 20px' },
-  card:{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:'20px 22px', marginBottom:16 },
-  cardAccent:{ background:C.surface, border:`1px solid ${C.accent}`, borderRadius:12, padding:'20px 22px', marginBottom:16 },
-  label:{ fontSize:10, letterSpacing:3, color:C.accent, marginBottom:10, display:'block' },
-  labelMuted:{ fontSize:10, letterSpacing:3, color:C.muted, marginBottom:8, display:'block' },
-  text:{ fontSize:13, color:C.text, lineHeight:1.8 },
-  small:{ fontSize:12, color:C.muted, lineHeight:1.7 },
-  btnPrimary:{ background:C.accent, color:'#000', border:'none', borderRadius:8, padding:'12px 28px', fontFamily:"'Space Mono',monospace", fontSize:13, fontWeight:700, cursor:'pointer' },
-  btnSec:{ background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, borderRadius:8, padding:'10px 20px', fontFamily:"'Space Mono',monospace", fontSize:12, cursor:'pointer' },
-  btnGhost:{ background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 16px', fontFamily:"'Space Mono',monospace", fontSize:11, cursor:'pointer' },
-  tag:{ display:'inline-block', background:C.accentDim, color:C.accent, border:`1px solid rgba(45,212,191,0.2)`, borderRadius:4, padding:'2px 8px', fontSize:11, marginRight:5, marginBottom:4 },
-  tagGray:{ display:'inline-block', background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:4, padding:'2px 8px', fontSize:11, marginRight:5, marginBottom:4 },
+const LIGHT_C = {
+  bg:'#f1f5f9', surface:'#ffffff', border:'#e2e8f0',
+  text:'#0f172a', muted:'#64748b', accent:'#0d9488',
+  accentDim:'rgba(13,148,136,0.08)', ok:'#16a34a',
+  error:'#dc2626', warn:'#d97706',
 };
 
 // ─── Perfil actual de César (LinkedIn export + logros documentados) ────────
@@ -211,8 +202,59 @@ function parseJSON(text) {
   return null;
 }
 
+// ─── Toggle button ────────────────────────────────────────────────────────────
+function ThemeToggle({ isDark, onToggle }) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        position:'fixed', top:12, right:12, zIndex:9999,
+        background: isDark ? '#0e1117' : '#ffffff',
+        border: `1px solid ${isDark ? '#1c2230' : '#e2e8f0'}`,
+        borderRadius:8, padding:'6px 14px', cursor:'pointer',
+        color: isDark ? '#e2e8f0' : '#0f172a',
+        fontFamily:"'Space Mono',monospace", fontSize:'0.7rem',
+        transition:'all 0.2s',
+      }}
+    >{isDark ? '☀ Claro' : '◑ Oscuro'}</button>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 function App() {
+  const [isDark, setIsDark] = useState(() => {
+    try { return localStorage.getItem('theme') !== 'light'; } catch { return true; }
+  });
+
+  const C = isDark ? DARK_C : LIGHT_C;
+
+  const S = {
+    page:{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Space Mono',monospace", paddingBottom:60 },
+    wrap:{ maxWidth:780, margin:'0 auto', padding:'0 20px' },
+    card:{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:'20px 22px', marginBottom:16 },
+    cardAccent:{ background:C.surface, border:`1px solid ${C.accent}`, borderRadius:12, padding:'20px 22px', marginBottom:16 },
+    label:{ fontSize:10, letterSpacing:3, color:C.accent, marginBottom:10, display:'block' },
+    labelMuted:{ fontSize:10, letterSpacing:3, color:C.muted, marginBottom:8, display:'block' },
+    text:{ fontSize:13, color:C.text, lineHeight:1.8 },
+    small:{ fontSize:12, color:C.muted, lineHeight:1.7 },
+    btnPrimary:{ background:C.accent, color: isDark ? '#000' : '#fff', border:'none', borderRadius:8, padding:'12px 28px', fontFamily:"'Space Mono',monospace", fontSize:13, fontWeight:700, cursor:'pointer' },
+    btnSec:{ background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, borderRadius:8, padding:'10px 20px', fontFamily:"'Space Mono',monospace", fontSize:12, cursor:'pointer' },
+    btnGhost:{ background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 16px', fontFamily:"'Space Mono',monospace", fontSize:11, cursor:'pointer' },
+    tag:{ display:'inline-block', background:C.accentDim, color:C.accent, border:`1px solid rgba(45,212,191,0.2)`, borderRadius:4, padding:'2px 8px', fontSize:11, marginRight:5, marginBottom:4 },
+    tagGray:{ display:'inline-block', background:'transparent', color:C.muted, border:`1px solid ${C.border}`, borderRadius:4, padding:'2px 8px', fontSize:11, marginRight:5, marginBottom:4 },
+  };
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch {}
+    document.body.style.background = next ? '#080b0f' : '#f1f5f9';
+  };
+
+  useEffect(() => {
+    document.body.style.background = isDark ? '#080b0f' : '#f1f5f9';
+  }, []);
+
   const [vista, setVista] = useState('inicio');
   const [perfil, setPerfil] = useState(PERFIL_SEED);
   const [optimizado, setOptimizado] = useState(null);
@@ -317,88 +359,91 @@ function App() {
 
   // ── INICIO ──────────────────────────────────────────────────────────────────
   if (vista === 'inicio') return (
-    <div style={S.page}>
-      <div style={S.wrap}>
-        <div style={{ padding: '32px 0 0' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
-            <span style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em' }}>PERFIL LINKEDIN</span>
-            {guardado && <span style={{ ...S.tag, fontSize:9 }}>OPTIMIZADO</span>}
-          </div>
-          <div style={{ fontSize:11, color:C.muted, marginBottom:28 }}>
-            Analiza y optimiza tu perfil para entrevistas como Lead UX/UI · PO · Product Manager
-          </div>
-        </div>
-
-        {/* Perfil actual */}
-        <div style={S.card}>
-          <span style={S.label}>TITULAR ACTUAL</span>
-          <div style={{ ...S.small, color:'#94a3b8', marginBottom:20, paddingLeft:10, borderLeft:`2px solid ${C.border}` }}>
-            {perfil.titular}
-          </div>
-
-          <span style={S.label}>EXTRACTO / ABOUT</span>
-          <div style={{ ...S.small, marginBottom:20, whiteSpace:'pre-line' }}>
-            {perfil.about.slice(0, 280)}<span style={{ color:C.muted }}>…</span>
-          </div>
-
-          <span style={S.label}>EXPERIENCIA</span>
-          {perfil.experiencias.map((e, i) => (
-            <div key={i} style={{ marginBottom:10 }}>
-              <div style={{ fontSize:12, fontWeight:700 }}>{e.puesto}</div>
-              <div style={{ fontSize:11, color:C.accent }}>{e.empresa} · {e.periodo}</div>
+    <>
+      <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+      <div style={S.page}>
+        <div style={S.wrap}>
+          <div style={{ padding: '32px 0 0' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+              <span style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em' }}>PERFIL LINKEDIN</span>
+              {guardado && <span style={{ ...S.tag, fontSize:9 }}>OPTIMIZADO</span>}
             </div>
-          ))}
-
-          <span style={{ ...S.label, marginTop:16 }}>SKILLS VISIBLES EN LINKEDIN</span>
-          <div style={{ marginBottom:16 }}>
-            {perfil.skills.map(s => <span key={s} style={S.tagGray}>{s}</span>)}
-            <span style={{ fontSize:11, color:C.error, marginLeft:8 }}>← solo 3 skills, insuficiente</span>
+            <div style={{ fontSize:11, color:C.muted, marginBottom:28 }}>
+              Analiza y optimiza tu perfil para entrevistas como Lead UX/UI · PO · Product Manager
+            </div>
           </div>
 
-          <span style={S.label}>LOGROS DOCUMENTADOS</span>
-          {perfil.logros.map((l, i) => (
-            <div key={i} style={{ ...S.small, paddingLeft:10, borderLeft:`2px solid ${C.border}`, marginBottom:6 }}>{l}</div>
-          ))}
+          {/* Perfil actual */}
+          <div style={S.card}>
+            <span style={S.label}>TITULAR ACTUAL</span>
+            <div style={{ ...S.small, color: isDark ? '#94a3b8' : '#64748b', marginBottom:20, paddingLeft:10, borderLeft:`2px solid ${C.border}` }}>
+              {perfil.titular}
+            </div>
 
-          {perfil.logros_adicionales?.length > 0 && <>
-            <span style={{ ...S.label, color:C.warn, marginTop:14 }}>AÑADIDOS</span>
-            {perfil.logros_adicionales.map((l, i) => (
-              <div key={i} style={{ ...S.small, paddingLeft:10, borderLeft:`2px solid ${C.warn}`, marginBottom:6 }}>{l}</div>
+            <span style={S.label}>EXTRACTO / ABOUT</span>
+            <div style={{ ...S.small, marginBottom:20, whiteSpace:'pre-line' }}>
+              {perfil.about.slice(0, 280)}<span style={{ color:C.muted }}>…</span>
+            </div>
+
+            <span style={S.label}>EXPERIENCIA</span>
+            {perfil.experiencias.map((e, i) => (
+              <div key={i} style={{ marginBottom:10 }}>
+                <div style={{ fontSize:12, fontWeight:700 }}>{e.puesto}</div>
+                <div style={{ fontSize:11, color:C.accent }}>{e.empresa} · {e.periodo}</div>
+              </div>
             ))}
-          </>}
-        </div>
 
-        {/* Input logros */}
-        <div style={{ marginBottom:12 }}>
-          <button onClick={() => setMostrarInput(!mostrarInput)} style={S.btnGhost}>
-            {mostrarInput ? '▲ Cerrar' : '+ Añadir proyectos o logros nuevos'}
-          </button>
-        </div>
-        {mostrarInput && (
-          <div style={{ ...S.card, borderColor:C.warn, marginBottom:20 }}>
-            <span style={{ ...S.label, color:C.warn }}>NUEVOS PROYECTOS / LOGROS</span>
-            <div style={{ ...S.small, marginBottom:10 }}>Uno por línea. Ej: "Diseñé X consiguiendo Y resultado"</div>
-            <textarea
-              value={logrosNuevos}
-              onChange={e => setLogrosNuevos(e.target.value)}
-              placeholder={`Lideré el rediseño completo del checkout...\nImplementé sistema de A/B testing que mejoró conversión...`}
-              style={{ width:'100%', background:'#05080c', border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:"'Space Mono',monospace", fontSize:12, padding:12, resize:'vertical', minHeight:90, outline:'none' }}
-            />
+            <span style={{ ...S.label, marginTop:16 }}>SKILLS VISIBLES EN LINKEDIN</span>
+            <div style={{ marginBottom:16 }}>
+              {perfil.skills.map(s => <span key={s} style={S.tagGray}>{s}</span>)}
+              <span style={{ fontSize:11, color:C.error, marginLeft:8 }}>← solo 3 skills, insuficiente</span>
+            </div>
+
+            <span style={S.label}>LOGROS DOCUMENTADOS</span>
+            {perfil.logros.map((l, i) => (
+              <div key={i} style={{ ...S.small, paddingLeft:10, borderLeft:`2px solid ${C.border}`, marginBottom:6 }}>{l}</div>
+            ))}
+
+            {perfil.logros_adicionales?.length > 0 && <>
+              <span style={{ ...S.label, color:C.warn, marginTop:14 }}>AÑADIDOS</span>
+              {perfil.logros_adicionales.map((l, i) => (
+                <div key={i} style={{ ...S.small, paddingLeft:10, borderLeft:`2px solid ${C.warn}`, marginBottom:6 }}>{l}</div>
+              ))}
+            </>}
           </div>
-        )}
 
-        <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-          <button onClick={analizar} style={S.btnPrimary}>
-            Analizar y optimizar →
-          </button>
-          {optimizado && (
-            <button onClick={() => setVista('resultado')} style={S.btnSec}>
-              Ver última optimización
+          {/* Input logros */}
+          <div style={{ marginBottom:12 }}>
+            <button onClick={() => setMostrarInput(!mostrarInput)} style={S.btnGhost}>
+              {mostrarInput ? '▲ Cerrar' : '+ Añadir proyectos o logros nuevos'}
             </button>
+          </div>
+          {mostrarInput && (
+            <div style={{ ...S.card, borderColor:C.warn, marginBottom:20 }}>
+              <span style={{ ...S.label, color:C.warn }}>NUEVOS PROYECTOS / LOGROS</span>
+              <div style={{ ...S.small, marginBottom:10 }}>Uno por línea. Ej: "Diseñé X consiguiendo Y resultado"</div>
+              <textarea
+                value={logrosNuevos}
+                onChange={e => setLogrosNuevos(e.target.value)}
+                placeholder={`Lideré el rediseño completo del checkout...\nImplementé sistema de A/B testing que mejoró conversión...`}
+                style={{ width:'100%', background: isDark ? '#05080c' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:"'Space Mono',monospace", fontSize:12, padding:12, resize:'vertical', minHeight:90, outline:'none' }}
+              />
+            </div>
           )}
+
+          <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+            <button onClick={analizar} style={S.btnPrimary}>
+              Analizar y optimizar →
+            </button>
+            {optimizado && (
+              <button onClick={() => setVista('resultado')} style={S.btnSec}>
+                Ver última optimización
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 
   // ── ANALIZANDO ──────────────────────────────────────────────────────────────
@@ -410,47 +455,50 @@ function App() {
     ];
     const idx = fases.findIndex(f => f.id === fase);
     return (
-      <div style={S.page}>
-        <div style={S.wrap}>
-          <div style={{ padding:'32px 0 20px' }}>
-            <div style={{ fontSize:18, fontWeight:700, marginBottom:4 }}>ANALIZANDO PERFIL</div>
-            <div style={{ fontSize:11, color:C.muted }}>3 agentes revisando tu perfil…</div>
-          </div>
+      <>
+        <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+        <div style={S.page}>
+          <div style={S.wrap}>
+            <div style={{ padding:'32px 0 20px' }}>
+              <div style={{ fontSize:18, fontWeight:700, marginBottom:4 }}>ANALIZANDO PERFIL</div>
+              <div style={{ fontSize:11, color:C.muted }}>3 agentes revisando tu perfil…</div>
+            </div>
 
-          <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-            {fases.map((f, i) => (
-              <div key={f.id} style={{
-                flex:1, textAlign:'center', padding:'8px 6px', borderRadius:8, fontSize:11,
-                background: i < idx || (fase === '' && i < 3) ? C.accentDim : (f.id === fase ? C.accentDim : C.surface),
-                border: `1px solid ${i <= idx ? C.accent : C.border}`,
-                color: i <= idx ? C.accent : C.muted,
-              }}>{f.label}</div>
-            ))}
-          </div>
+            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+              {fases.map((f, i) => (
+                <div key={f.id} style={{
+                  flex:1, textAlign:'center', padding:'8px 6px', borderRadius:8, fontSize:11,
+                  background: i < idx || (fase === '' && i < 3) ? C.accentDim : (f.id === fase ? C.accentDim : C.surface),
+                  border: `1px solid ${i <= idx ? C.accent : C.border}`,
+                  color: i <= idx ? C.accent : C.muted,
+                }}>{f.label}</div>
+              ))}
+            </div>
 
-          <div ref={logsRef} style={{ background:'#05080c', border:`1px solid ${C.border}`, borderRadius:12, padding:16, height:320, overflowY:'auto', fontFamily:'monospace', fontSize:12 }}>
-            {logs.map((l, i) => (
-              <div key={i} style={{ padding:'3px 0', color: l.tipo==='ok'?C.ok:l.tipo==='error'?C.error:l.tipo==='warn'?C.warn:l.tipo==='agente'?C.accent:C.muted }}>
-                <span style={{ color:C.border, marginRight:8 }}>›</span>{l.msg}
-              </div>
-            ))}
-            {fase && !error && (
-              <div style={{ color:C.accent, animation:'blink 1.2s infinite' }}>
-                <span style={{ color:C.border, marginRight:8 }}>›</span>procesando…
+            <div ref={logsRef} style={{ background: isDark ? '#05080c' : '#f8fafc', border:`1px solid ${C.border}`, borderRadius:12, padding:16, height:320, overflowY:'auto', fontFamily:'monospace', fontSize:12 }}>
+              {logs.map((l, i) => (
+                <div key={i} style={{ padding:'3px 0', color: l.tipo==='ok'?C.ok:l.tipo==='error'?C.error:l.tipo==='warn'?C.warn:l.tipo==='agente'?C.accent:C.muted }}>
+                  <span style={{ color:C.border, marginRight:8 }}>›</span>{l.msg}
+                </div>
+              ))}
+              {fase && !error && (
+                <div style={{ color:C.accent, animation:'blink 1.2s infinite' }}>
+                  <span style={{ color:C.border, marginRight:8 }}>›</span>procesando…
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <div style={{ background: isDark ? '#1a0808' : '#fef2f2', border:`1px solid ${C.error}`, borderRadius:8, padding:16, marginTop:16, color:C.error, fontSize:12 }}>
+                ✗ {error}
+                <div style={{ marginTop:10 }}>
+                  <button onClick={() => setVista('inicio')} style={S.btnGhost}>← Volver</button>
+                </div>
               </div>
             )}
           </div>
-
-          {error && (
-            <div style={{ background:'#1a0808', border:`1px solid ${C.error}`, borderRadius:8, padding:16, marginTop:16, color:C.error, fontSize:12 }}>
-              ✗ {error}
-              <div style={{ marginTop:10 }}>
-                <button onClick={() => setVista('inicio')} style={S.btnGhost}>← Volver</button>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      </>
     );
   }
 
@@ -468,9 +516,9 @@ function App() {
     const SectionCompare = ({ id, label, actual, opt }) => (
       <div style={{ ...S.card, marginBottom:20 }}>
         <span style={S.label}>{label}</span>
-        <div style={{ marginBottom:14, padding:'10px 14px', background:'#05080c', borderRadius:8 }}>
+        <div style={{ marginBottom:14, padding:'10px 14px', background: isDark ? '#05080c' : '#f8fafc', borderRadius:8 }}>
           <span style={S.labelMuted}>ACTUAL</span>
-          <div style={{ ...S.small, color:'#64748b', whiteSpace:'pre-line' }}>{actual}</div>
+          <div style={{ ...S.small, color: isDark ? '#64748b' : '#94a3b8', whiteSpace:'pre-line' }}>{actual}</div>
         </div>
         <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
@@ -483,126 +531,132 @@ function App() {
     );
 
     return (
-      <div style={S.page}>
-        <div style={S.wrap}>
-          <div style={{ padding:'32px 0 0', marginBottom:20 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
-              <span style={{ fontSize:20, fontWeight:700 }}>PERFIL OPTIMIZADO</span>
-              <span style={{ ...S.tag, fontSize:9 }}>GUARDADO</span>
+      <>
+        <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+        <div style={S.page}>
+          <div style={S.wrap}>
+            <div style={{ padding:'32px 0 0', marginBottom:20 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+                <span style={{ fontSize:20, fontWeight:700 }}>PERFIL OPTIMIZADO</span>
+                <span style={{ ...S.tag, fontSize:9 }}>GUARDADO</span>
+              </div>
+              {analisis?.recruiter?.primera_impresion && (
+                <div style={{ fontSize:12, color: isDark ? '#94a3b8' : '#64748b', padding:'10px 14px', background:C.accentDim, borderRadius:8, borderLeft:`3px solid ${C.accent}`, marginTop:10 }}>
+                  💡 <strong style={{ color:C.accent }}>Recruiter:</strong> {analisis.recruiter.primera_impresion}
+                </div>
+              )}
             </div>
-            {analisis?.recruiter?.primera_impresion && (
-              <div style={{ fontSize:12, color:'#94a3b8', padding:'10px 14px', background:C.accentDim, borderRadius:8, borderLeft:`3px solid ${C.accent}`, marginTop:10 }}>
-                💡 <strong style={{ color:C.accent }}>Recruiter:</strong> {analisis.recruiter.primera_impresion}
+
+            <SectionCompare
+              id="titular"
+              label="TITULAR"
+              actual={perfil.titular}
+              opt={optimizado.titular}
+            />
+
+            <SectionCompare
+              id="about"
+              label="ACERCA DE / ABOUT"
+              actual={perfil.about.slice(0, 220) + '…'}
+              opt={optimizado.about}
+            />
+
+            {/* Experiencia Flexicar */}
+            <div style={{ ...S.card, marginBottom:20 }}>
+              <span style={S.label}>EXPERIENCIA — FLEXICAR</span>
+              <div style={{ marginBottom:14, padding:'10px 14px', background: isDark ? '#05080c' : '#f8fafc', borderRadius:8 }}>
+                <span style={S.labelMuted}>ACTUAL</span>
+                <div style={{ fontSize:12, fontWeight:700, color: isDark ? '#64748b' : '#94a3b8' }}>{perfil.experiencias[0].puesto}</div>
+                <div style={{ ...S.small, color: isDark ? '#4b5563' : '#94a3b8', marginTop:4 }}>{perfil.experiencias[0].descripcion}</div>
+              </div>
+              <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                  <span style={S.label}>OPTIMIZADO</span>
+                  <CopyBtn id="flexicar" texto={`${optimizado.experiencia_flexicar?.titulo}\n\n• ${optimizado.experiencia_flexicar?.bullets?.join('\n• ')}`} />
+                </div>
+                <div style={{ fontSize:13, fontWeight:700, marginBottom:10, color:C.text }}>{optimizado.experiencia_flexicar?.titulo}</div>
+                {optimizado.experiencia_flexicar?.bullets?.map((b, i) => (
+                  <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {b}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Experiencia Devoteam */}
+            <div style={{ ...S.card, marginBottom:20 }}>
+              <span style={S.label}>EXPERIENCIA — DEVOTEAM / TOYOTA</span>
+              <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                  <span style={S.label}>OPTIMIZADO</span>
+                  <CopyBtn id="devoteam" texto={`${optimizado.experiencia_devoteam?.titulo}\n\n• ${optimizado.experiencia_devoteam?.bullets?.join('\n• ')}`} />
+                </div>
+                <div style={{ fontSize:13, fontWeight:700, marginBottom:10, color:C.text }}>{optimizado.experiencia_devoteam?.titulo}</div>
+                {optimizado.experiencia_devoteam?.bullets?.map((b, i) => (
+                  <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {b}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Skills */}
+            <div style={{ ...S.card, marginBottom:20 }}>
+              <span style={S.label}>SKILLS</span>
+              <div style={{ marginBottom:14, padding:'10px 14px', background: isDark ? '#05080c' : '#f8fafc', borderRadius:8 }}>
+                <span style={S.labelMuted}>ACTUALES (solo 3)</span>
+                <div>{perfil.skills.map(s => <span key={s} style={S.tagGray}>{s}</span>)}</div>
+              </div>
+              <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
+                <span style={S.label}>TOP 5 A DESTACAR</span>
+                <div style={{ marginBottom:14 }}>{optimizado.skills_top5?.map(s => <span key={s} style={S.tag}>{s}</span>)}</div>
+                <span style={S.labelMuted}>ADICIONALES A AÑADIR</span>
+                <div style={{ marginBottom:12 }}>{optimizado.skills_adicionales?.map(s => <span key={s} style={S.tagGray}>{s}</span>)}</div>
+                <div style={{ display:'flex', gap:8 }}>
+                  <CopyBtn id="skills5" texto={optimizado.skills_top5?.join(', ')} />
+                  <CopyBtn id="skillsAll" texto={[...(optimizado.skills_top5||[]), ...(optimizado.skills_adicionales||[])].join(', ')} />
+                </div>
+              </div>
+            </div>
+
+            {/* Logros clave */}
+            {optimizado.logros_clave?.length > 0 && (
+              <div style={{ ...S.card, marginBottom:20 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                  <span style={S.label}>LOGROS CLAVE (para About + Experiencia)</span>
+                  <CopyBtn id="logros" texto={optimizado.logros_clave?.join('\n')} />
+                </div>
+                {optimizado.logros_clave?.map((l, i) => (
+                  <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {l}</div>
+                ))}
               </div>
             )}
-          </div>
 
-          <SectionCompare
-            id="titular"
-            label="TITULAR"
-            actual={perfil.titular}
-            opt={optimizado.titular}
-          />
-
-          <SectionCompare
-            id="about"
-            label="ACERCA DE / ABOUT"
-            actual={perfil.about.slice(0, 220) + '…'}
-            opt={optimizado.about}
-          />
-
-          {/* Experiencia Flexicar */}
-          <div style={{ ...S.card, marginBottom:20 }}>
-            <span style={S.label}>EXPERIENCIA — FLEXICAR</span>
-            <div style={{ marginBottom:14, padding:'10px 14px', background:'#05080c', borderRadius:8 }}>
-              <span style={S.labelMuted}>ACTUAL</span>
-              <div style={{ fontSize:12, fontWeight:700, color:'#64748b' }}>{perfil.experiencias[0].puesto}</div>
-              <div style={{ ...S.small, color:'#4b5563', marginTop:4 }}>{perfil.experiencias[0].descripcion}</div>
-            </div>
-            <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                <span style={S.label}>OPTIMIZADO</span>
-                <CopyBtn id="flexicar" texto={`${optimizado.experiencia_flexicar?.titulo}\n\n• ${optimizado.experiencia_flexicar?.bullets?.join('\n• ')}`} />
+            {/* Razonamiento */}
+            {optimizado.razonamiento && (
+              <div style={{ ...S.card, marginBottom:24, borderColor:'rgba(45,212,191,0.2)' }}>
+                <span style={S.label}>POR QUÉ ESTOS CAMBIOS</span>
+                <div style={{ ...S.text, color: isDark ? '#94a3b8' : '#64748b', fontSize:12 }}>{optimizado.razonamiento}</div>
               </div>
-              <div style={{ fontSize:13, fontWeight:700, marginBottom:10, color:C.text }}>{optimizado.experiencia_flexicar?.titulo}</div>
-              {optimizado.experiencia_flexicar?.bullets?.map((b, i) => (
-                <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {b}</div>
-              ))}
-            </div>
-          </div>
+            )}
 
-          {/* Experiencia Devoteam */}
-          <div style={{ ...S.card, marginBottom:20 }}>
-            <span style={S.label}>EXPERIENCIA — DEVOTEAM / TOYOTA</span>
-            <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                <span style={S.label}>OPTIMIZADO</span>
-                <CopyBtn id="devoteam" texto={`${optimizado.experiencia_devoteam?.titulo}\n\n• ${optimizado.experiencia_devoteam?.bullets?.join('\n• ')}`} />
-              </div>
-              <div style={{ fontSize:13, fontWeight:700, marginBottom:10, color:C.text }}>{optimizado.experiencia_devoteam?.titulo}</div>
-              {optimizado.experiencia_devoteam?.bullets?.map((b, i) => (
-                <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {b}</div>
-              ))}
+            <div style={{ display:'flex', gap:12, flexWrap:'wrap', paddingBottom:40 }}>
+              <button onClick={() => setVista('inicio')} style={S.btnGhost}>← Perfil actual</button>
+              <button onClick={() => { setOptimizado(null); setAnalisis(null); setLogrosNuevos(''); setVista('inicio'); }} style={S.btnGhost}>↺ Nueva análisis</button>
             </div>
-          </div>
-
-          {/* Skills */}
-          <div style={{ ...S.card, marginBottom:20 }}>
-            <span style={S.label}>SKILLS</span>
-            <div style={{ marginBottom:14, padding:'10px 14px', background:'#05080c', borderRadius:8 }}>
-              <span style={S.labelMuted}>ACTUALES (solo 3)</span>
-              <div>{perfil.skills.map(s => <span key={s} style={S.tagGray}>{s}</span>)}</div>
-            </div>
-            <div style={{ padding:'10px 14px', background:C.accentDim, borderRadius:8, border:`1px solid rgba(45,212,191,0.15)` }}>
-              <span style={S.label}>TOP 5 A DESTACAR</span>
-              <div style={{ marginBottom:14 }}>{optimizado.skills_top5?.map(s => <span key={s} style={S.tag}>{s}</span>)}</div>
-              <span style={S.labelMuted}>ADICIONALES A AÑADIR</span>
-              <div style={{ marginBottom:12 }}>{optimizado.skills_adicionales?.map(s => <span key={s} style={S.tagGray}>{s}</span>)}</div>
-              <div style={{ display:'flex', gap:8 }}>
-                <CopyBtn id="skills5" texto={optimizado.skills_top5?.join(', ')} />
-                <CopyBtn id="skillsAll" texto={[...(optimizado.skills_top5||[]), ...(optimizado.skills_adicionales||[])].join(', ')} />
-              </div>
-            </div>
-          </div>
-
-          {/* Logros clave */}
-          {optimizado.logros_clave?.length > 0 && (
-            <div style={{ ...S.card, marginBottom:20 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-                <span style={S.label}>LOGROS CLAVE (para About + Experiencia)</span>
-                <CopyBtn id="logros" texto={optimizado.logros_clave?.join('\n')} />
-              </div>
-              {optimizado.logros_clave?.map((l, i) => (
-                <div key={i} style={{ ...S.text, paddingLeft:12, borderLeft:`2px solid ${C.accent}`, marginBottom:8, fontSize:12 }}>• {l}</div>
-              ))}
-            </div>
-          )}
-
-          {/* Razonamiento */}
-          {optimizado.razonamiento && (
-            <div style={{ ...S.card, marginBottom:24, borderColor:'rgba(45,212,191,0.2)' }}>
-              <span style={S.label}>POR QUÉ ESTOS CAMBIOS</span>
-              <div style={{ ...S.text, color:'#94a3b8', fontSize:12 }}>{optimizado.razonamiento}</div>
-            </div>
-          )}
-
-          <div style={{ display:'flex', gap:12, flexWrap:'wrap', paddingBottom:40 }}>
-            <button onClick={() => setVista('inicio')} style={S.btnGhost}>← Perfil actual</button>
-            <button onClick={() => { setOptimizado(null); setAnalisis(null); setLogrosNuevos(''); setVista('inicio'); }} style={S.btnGhost}>↺ Nueva análisis</button>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div style={S.page}>
-      <div style={S.wrap}>
-        <div style={{ padding:'40px 0' }}>
-          <button onClick={() => setVista('inicio')} style={S.btnSec}>← Volver al inicio</button>
+    <>
+      <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+      <div style={S.page}>
+        <div style={S.wrap}>
+          <div style={{ padding:'40px 0' }}>
+            <button onClick={() => setVista('inicio')} style={S.btnSec}>← Volver al inicio</button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

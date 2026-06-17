@@ -11,14 +11,16 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0a0a0f;
-      --surface: #111118;
-      --border: #1e1e2e;
-      --accent: #7fff6e;
-      --accent2: #6e9fff;
-      --text: #e8e8f0;
-      --muted: #555570;
-      --card-bg: #12121a;
+      --bg: #0a0a0f; --surface: #111118; --border: #1e1e2e;
+      --accent: #7fff6e; --accent2: #6e9fff; --text: #e8e8f0;
+      --muted: #555570; --card-bg: #12121a;
+      --grid-color: rgba(127,255,110,0.03);
+    }
+    [data-theme="light"] {
+      --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
+      --accent: #16a34a; --accent2: #2563eb; --text: #0f172a;
+      --muted: #64748b; --card-bg: #ffffff;
+      --grid-color: rgba(22,163,74,0.04);
     }
 
     html, body {
@@ -34,8 +36,8 @@
       position: fixed;
       inset: 0;
       background-image:
-        linear-gradient(rgba(127,255,110,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(127,255,110,0.03) 1px, transparent 1px);
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
       background-size: 40px 40px;
       pointer-events: none;
       z-index: 0;
@@ -191,7 +193,7 @@
     }
 
     .card:hover {
-      border-color: #2e2e4e;
+      border-color: var(--border);
       transform: translateY(-3px);
       box-shadow: 0 12px 40px rgba(0,0,0,0.5);
     }
@@ -260,7 +262,7 @@
     .card-date {
       font-family: 'Space Mono', monospace;
       font-size: 0.65rem;
-      color: #333350;
+      color: var(--muted);
     }
 
     .open-btn {
@@ -282,6 +284,15 @@
 
     .open-btn:hover { background: #a0ffaa; transform: scale(1.03); }
     .open-btn svg { width: 13px; height: 13px; }
+
+    #theme-toggle {
+      position: fixed; top: 14px; right: 20px; z-index: 200;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 14px; color: var(--text);
+      font-family: 'Space Mono', monospace; font-size: 0.7rem;
+      cursor: pointer; transition: all 0.2s;
+    }
+    #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
     #empty {
       display: none;
@@ -383,6 +394,8 @@
 </head>
 <body>
 
+<button id="theme-toggle" onclick="toggleTheme()">☀ Claro</button>
+
 <header>
   <div class="logo-block">
     <h1>tools<span>.</span></h1>
@@ -444,6 +457,26 @@
 </div>
 
 <script>
+  (function() {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.getElementById('theme-toggle').textContent = '◑ Oscuro';
+    }
+  })();
+  function toggleTheme() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if (isLight) {
+      document.documentElement.removeAttribute('data-theme');
+      document.getElementById('theme-toggle').textContent = '☀ Claro';
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.getElementById('theme-toggle').textContent = '◑ Oscuro';
+      localStorage.setItem('theme', 'light');
+    }
+  }
+
   const CATALOG_URL = './artifacts/catalog.json';
   let allArtifacts = [];
   let activeTag = 'all';
