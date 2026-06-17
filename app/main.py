@@ -9,8 +9,12 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+try:
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from apscheduler.triggers.cron import CronTrigger
+    _HAS_SCHEDULER = True
+except ImportError:
+    _HAS_SCHEDULER = False
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,7 +48,7 @@ TERMINOS_REMOTIVE = [
     ("ux lead", "Design"),
     ("lead ux", "Design"),
 ]
-scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
+scheduler = AsyncIOScheduler(timezone="Europe/Madrid") if _HAS_SCHEDULER else None
 
 
 # Ubicaciones compatibles con España
@@ -221,11 +225,13 @@ async def busqueda_automatica():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scheduler.add_job(busqueda_automatica, CronTrigger(hour=9, minute=0))
-    scheduler.add_job(busqueda_automatica, CronTrigger(hour=18, minute=0))
-    scheduler.start()
+    if _HAS_SCHEDULER and scheduler:
+        scheduler.add_job(busqueda_automatica, CronTrigger(hour=9, minute=0))
+        scheduler.add_job(busqueda_automatica, CronTrigger(hour=18, minute=0))
+        scheduler.start()
     yield
-    scheduler.shutdown(wait=False)
+    if _HAS_SCHEDULER and scheduler:
+        scheduler.shutdown(wait=False)
 
 
 LOGIN_HTML = """<!DOCTYPE html>
